@@ -43,21 +43,6 @@ function calcMACD(closes){
   return { macdLine, signalLine };
 }
 
-function aggregateToHourly(ohlc){
-  // 把每2根30分钟蜡烛合并成1根1小时蜡烛(CoinGecko免费接口没有直接的1小时选项)
-  const result = [];
-  for(let i = 0; i < ohlc.length; i += 2){
-    const chunk = ohlc.slice(i, i + 2);
-    const time = chunk[0][0];
-    const open = chunk[0][1];
-    const high = Math.max(...chunk.map(c => c[2]));
-    const low = Math.min(...chunk.map(c => c[3]));
-    const close = chunk[chunk.length - 1][4];
-    result.push([time, open, high, low, close]);
-  }
-  return result;
-}
-
 async function fetchJson(url){
   const res = await fetch(url);
   if(!res.ok) throw new Error(`请求失败 ${res.status}: ${url}`);
@@ -78,15 +63,13 @@ async function main(){
     process.exit(1);
   }
 
-  // 1. K线数据:拉2天的30分钟原始数据,聚合成1小时颗粒度
-  const rawOhlc = await fetchJson('https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=2');
-  const ohlc = aggregateToHourly(rawOhlc);
-  const closes = ohlc.map(d => d[4]);
-  const highs = ohlc.map(d => d[2]);
-  const lows = ohlc.map(d => d[3]);
+  // 1. 价格数据:market_chart 接口在 2-90 天范围内会自动返回逐小时数据(免费、不需要key)
+  const chart = await fetchJson('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=3');
+  const closes = chart.prices.map(p => p[1]);
   const currentPrice = closes[closes.length - 1];
-  const support = Math.min(...lows);
-  const resistance = Math.max(...highs);
+  // 注:market_chart 只给价格点,没有真正的每小时最高/最低,这里用价格序列本身的极值近似支撑/阻力
+  const support = Math.min(...closes);
+  const resistance = Math.max(...closes);
 
   const rsi14 = calcRSI(closes, 14);
   const sma7 = calcSMA(closes, 7);
