@@ -1,5 +1,5 @@
 // scripts/check-signal.mjs
-// 定时拉取 BTC 数据、计算信号,只有信号发生变化时才推送 Telegram 通知
+// 定时拉取 BTC 数据(1小时颗粒度)、计算信号,只有信号发生变化时才推送 Telegram 通知
 import fs from 'fs';
 
 const STATE_FILE = 'signal-state.json';
@@ -43,6 +43,21 @@ function calcMACD(closes){
   return { macdLine, signalLine };
 }
 
+function aggregateToHourly(ohlc){
+  // 把每2根30分钟蜡烛合并成1根1小时蜡烛(CoinGecko免费接口没有直接的1小时选项)
+  const result = [];
+  for(let i = 0; i < ohlc.length; i += 2){
+    const chunk = ohlc.slice(i, i + 2);
+    const time = chunk[0][0];
+    const open = chunk[0][1];
+    const high = Math.max(...chunk.map(c => c[2]));
+    const low = Math.min(...chunk.map(c => c[3]));
+    const close = chunk[chunk.length - 1][4];
+    result.push([time, open, high, low, close]);
+  }
+  return result;
+}
+
 async function fetchJson(url){
   const res = await fetch(url);
   if(!res.ok) throw new Error(`请求失败 ${res.status}: ${url}`);
@@ -63,8 +78,9 @@ async function main(){
     process.exit(1);
   }
 
-  // 1. K线数据:7天区间,4小时颗粒度(和网页信号面板逻辑保持一致)
-  const ohlc = await fetchJson('https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=7');
+  // 1. K线数据:拉2天的30分钟原始数据,聚合成1小时颗粒度
+  const rawOhlc = await fetchJson('https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=2');
+  const ohlc = aggregateToHourly(rawOhlc);
   const closes = ohlc.map(d => d[4]);
   const highs = ohlc.map(d => d[2]);
   const lows = ohlc.map(d => d[3]);
@@ -110,7 +126,7 @@ async function main(){
   if(sma7 !== null){
     const bull = currentPrice >= sma7;
     score += bull ? 1 : -1;
-    factors.push({ name: '均线趋势', verdict: bull ? 'bull' : 'bear', reason: bull ? '现价在7日均线上方' : '现价在7日均线下方' });
+    factors.push({ name: '均线趋势', verdict: bull ? 'bull' : 'bear', reason: bull ? '现价在7小时均线上方' : '现价在7小时均线下方' });
   }
 
   let fgV = 'neutral';
