@@ -314,6 +314,94 @@
     line-height: 1.6;
   }
 
+  /* Position size calculator */
+  .calc-panel{
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin-bottom: 22px;
+  }
+  .calc-head{
+    display:flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .calc-sub{
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .calc-grid{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 600px){ .calc-grid{ grid-template-columns: 1fr; } }
+  .calc-grid label{
+    display:flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .calc-grid input{
+    background: var(--panel-2);
+    border: 1px solid var(--hairline);
+    border-radius: 3px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+  }
+  .calc-grid input:focus{ outline: 1px solid var(--gold-dim); }
+  .calc-result{
+    background: var(--panel-2);
+    border: 1px dashed var(--hairline);
+    border-radius: 3px;
+    padding: 12px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .calc-row{
+    display:flex;
+    justify-content: space-between;
+    padding: 4px 0;
+  }
+  .calc-row b{ color: var(--gold); font-weight: 600; }
+  .calc-note{
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* Correlation matrix */
+  .corr-panel{
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin-bottom: 22px;
+  }
+  .corr-sub{ font-size: 12px; color: var(--muted); margin-bottom: 14px; display:block; }
+  .corr-table{
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+  }
+  .corr-table th, .corr-table td{
+    padding: 8px 10px;
+    text-align: center;
+    border: 1px solid var(--hairline);
+  }
+  .corr-table th{ color: var(--muted); font-weight: 500; font-size: 12px; }
+  .corr-table td.diag{ color: var(--muted); }
+  .corr-note{ font-size: 11px; color: var(--muted); margin-top: 12px; line-height: 1.6; }
+
   .gauge-row{
     display:flex;
     align-items:center;
@@ -581,6 +669,7 @@
       <span><i style="background:var(--green)"></i>上涨</span>
       <span><i style="background:var(--red)"></i>下跌</span>
       <span><i style="background:var(--gold); height:2px; width:12px; border-radius:0;"></i>SMA(7)</span>
+      <span><i style="background:#8FA8C9; height:2px; width:12px; border-radius:0;"></i>布林带(20,2)</span>
       <span style="margin-left:auto; color:var(--muted);">滚轮缩放 · 拖拽平移</span>
     </div>
     <div class="chart-wrap" id="priceChartWrap">
@@ -617,6 +706,38 @@
     </div>
     <div class="signal-factors" id="signalFactors"></div>
     <div class="signal-disclaimer">⚠️ 以上为基于技术指标的机械化计算结果,仅描述当前数据状态,不预测未来走势,不构成投资建议。加密市场波动剧烈,请结合自身风险承受能力独立判断。</div>
+  </div>
+
+  <div class="calc-panel">
+    <div class="calc-head">
+      <span class="section-label" style="margin:0;">🧮 仓位计算器</span>
+      <span class="calc-sub">下面的数字全部由你自己填,工具只负责算数,不建议具体倍数或止损点位</span>
+    </div>
+    <div class="calc-grid">
+      <label>账户总资金(USDT)
+        <input type="number" id="calcAccount" placeholder="例如 5000" min="0" step="any">
+      </label>
+      <label>单笔愿意承担的风险(占账户 %)
+        <input type="number" id="calcRiskPct" placeholder="例如 1" min="0" step="any">
+      </label>
+      <label>止损距离(相对入场价的 %,自己定)
+        <input type="number" id="calcStopPct" placeholder="例如 2" min="0" step="any">
+      </label>
+      <label>计划投入的保证金(USDT,可选)
+        <input type="number" id="calcMargin" placeholder="例如 500" min="0" step="any">
+      </label>
+    </div>
+    <div class="calc-result" id="calcResult">填写左边的数字,这里会显示计算结果</div>
+    <div class="calc-note">⚠️ 这里只是根据你填的数字做算数,不会替你决定具体杠杆倍数或止损点位——这两个最终都需要你自己判断。</div>
+  </div>
+
+  <div class="corr-panel">
+    <span class="section-label" style="margin:0 0 4px;">🔗 相关性矩阵(近3天,按每小时涨跌幅计算)</span>
+    <span class="corr-sub">数字越接近 1,代表两个币种走势越同步;越接近 0,代表联动越弱</span>
+    <table class="corr-table" id="corrTable">
+      <tr><td colspan="4" style="color:var(--muted);">加载中…</td></tr>
+    </table>
+    <div class="corr-note">相关性高不代表谁涨谁跌,只代表两者是否倾向于同涨同跌——如果多个持仓相关性都很高,分散买入并不能真正分散风险。</div>
   </div>
 
   <div class="grid">
@@ -680,15 +801,17 @@ async function fetchMarketData(){
     const usdtDom = global.data.market_cap_percentage.usdt;
     const mcapChange24h = global.data.market_cap_change_percentage_24h_usd;
 
-    // 永续合约资金费率 + 未平仓合约(来自 Binance 公开接口,失败不影响主数据)
-    let funding = null, openInterest = null;
+    // 永续合约资金费率 + 未平仓合约 + 多空持仓比例(来自 Binance 公开接口,失败不影响主数据)
+    let funding = null, openInterest = null, longShortRatio = null;
     try{
-      const [fundRes, oiRes] = await Promise.all([
+      const [fundRes, oiRes, lsRes] = await Promise.all([
         fetch('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT'),
-        fetch('https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT')
+        fetch('https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT'),
+        fetch('https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=1')
       ]);
       const fundJson = await fundRes.json();
       const oiJson = await oiRes.json();
+      const lsJson = await lsRes.json();
       funding = {
         rate: parseFloat(fundJson.lastFundingRate) * 100,
         nextTime: fundJson.nextFundingTime
@@ -696,8 +819,11 @@ async function fetchMarketData(){
       openInterest = {
         contracts: parseFloat(oiJson.openInterest)
       };
+      if(Array.isArray(lsJson) && lsJson[0]){
+        longShortRatio = parseFloat(lsJson[0].longShortRatio);
+      }
     }catch(e){
-      console.warn('资金费率/未平仓合约获取失败(不影响其他数据):', e.message);
+      console.warn('资金费率/未平仓合约/多空比例获取失败(不影响其他数据):', e.message);
     }
 
     latestData = {
@@ -710,7 +836,8 @@ async function fetchMarketData(){
       mcapChange24h: mcapChange24h,
       totalMcap: global.data.total_market_cap.usd,
       funding: funding,
-      openInterest: openInterest
+      openInterest: openInterest,
+      longShortRatio: longShortRatio
     };
 
     renderCards(latestData);
@@ -789,6 +916,16 @@ function renderCards(d){
     oiCard = cardWithIcon('▦', 'BTC 未平仓合约', '<span style="color:var(--muted); font-size:14px;">暂无数据</span>');
   }
 
+  let lsCard;
+  if(d.longShortRatio){
+    const ls = d.longShortRatio;
+    const lsHint = ls >= 2.0 ? '多头账户数明显更多,注意拥挤风险' : ls <= 0.6 ? '空头账户数明显更多,注意逼空风险' : '多空账户数大致平衡';
+    lsCard = cardWithIcon('⚔', 'BTC 多空持仓比', ls.toFixed(2),
+      `多头${(ls/(ls+1)*100).toFixed(0)}% / 空头${(1/(ls+1)*100).toFixed(0)}%`, lsHint);
+  } else {
+    lsCard = cardWithIcon('⚔', 'BTC 多空持仓比', '<span style="color:var(--muted); font-size:14px;">暂无数据</span>');
+  }
+
   cardsGrid.innerHTML = `
     ${coinCard('BTC / USD', d.btc)}
     ${coinCard('ETH / USD', d.eth)}
@@ -800,6 +937,7 @@ function renderCards(d){
     ${cardWithIcon('▤', 'BTC 24h 成交量', fmtVol(d.btc.usd_24h_vol))}
     ${fundingCard}
     ${oiCard}
+    ${lsCard}
     <div class="card wide">
       <div class="card-head"><span class="card-icon">🌡</span><span class="label">恐慌与贪婪指数 · ${fngLabelZh(d.fng.label)}</span></div>
       <div class="gauge-row">
@@ -878,6 +1016,22 @@ function computeSignal(){
     if(fr >= 0.05){ frV = 'bear'; score -= 1; frReason = `费率 ${fr.toFixed(4)}%,多头持仓拥挤,注意长仓踩踏风险`; }
     else if(fr <= -0.02){ frV = 'bull'; score += 1; frReason = `费率为负(${fr.toFixed(4)}%),空头持仓拥挤,存在逼空反弹可能`; }
     factors.push({ name: 'BTC 资金费率', verdict: frV, reason: frReason });
+  }
+
+  if(latestData.longShortRatio){
+    const ls = latestData.longShortRatio;
+    let lsV = 'neutral', lsReason = `多空比 ${ls.toFixed(2)},账户数大致平衡`;
+    if(ls >= 2.0){ lsV = 'bear'; score -= 1; lsReason = `多空比 ${ls.toFixed(2)},多头账户数明显更多,注意拥挤风险`; }
+    else if(ls <= 0.6){ lsV = 'bull'; score += 1; lsReason = `多空比 ${ls.toFixed(2)},空头账户数明显更多,注意逼空风险`; }
+    factors.push({ name: 'BTC 多空持仓比', verdict: lsV, reason: lsReason });
+  }
+
+  if(latestIndicators.adx !== null && latestIndicators.adx !== undefined){
+    const adx = latestIndicators.adx;
+    const trendNote = adx >= 25 ? '当前有明显趋势,趋势类指标参考价值较高'
+      : adx <= 15 ? '当前偏震荡,趋势类指标容易失真,谨慎参考'
+      : '趋势强度中等';
+    factors.push({ name: `ADX(14) 趋势强度 · ${coinNames[latestIndicators.coin] || ''}`, verdict: 'neutral', reason: `${adx.toFixed(1)} · ${trendNote}` });
   }
 
   return { score, factors };
@@ -1034,7 +1188,7 @@ let currentGranularity = '30m';
 let rawOhlc = [];
 let fullOhlc = [];
 let viewRange = [0, 0];
-let latestIndicators = { rsi14: null, macdBias: null, smaBias: null, coin: null, support: null, resistance: null, currentPrice: null };
+let latestIndicators = { rsi14: null, macdBias: null, smaBias: null, coin: null, support: null, resistance: null, currentPrice: null, adx: null };
 const coinNames = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL' };
 
 function aggregateToHourly(ohlc){
@@ -1063,17 +1217,23 @@ function renderCandlestickChart(ohlc, labels){
   const innerH = h - padTop - padBottom;
   const n = ohlc.length;
 
+  const closes = ohlc.map(d => d[4]);
+  const bb = calcBollingerBands(closes, 20, 2);
+
   const allHighs = ohlc.map(d => d[2]);
   const allLows = ohlc.map(d => d[3]);
-  const min = Math.min(...allLows), max = Math.max(...allHighs);
+  let min = Math.min(...allLows), max = Math.max(...allHighs);
+  if(bb){
+    const validUpper = bb.upper.filter(v => v !== null);
+    const validLower = bb.lower.filter(v => v !== null);
+    if(validUpper.length){ max = Math.max(max, ...validUpper); min = Math.min(min, ...validLower); }
+  }
   const range = (max - min) || 1;
 
   const scaleY = (price) => padTop + innerH * (1 - (price - min) / range);
 
   const slotW = (w - padX*2) / n;
   const bodyW = Math.max(1, slotW * 0.55);
-
-  const closes = ohlc.map(d => d[4]);
 
   const candles = ohlc.map((d, i) => {
     const [, open, high, low, close] = d;
@@ -1098,6 +1258,21 @@ function renderCandlestickChart(ohlc, labels){
     ? smaPts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')
     : '';
 
+  let bbUpperPath = '', bbLowerPath = '';
+  if(bb){
+    const upperPts = [], lowerPts = [];
+    bb.upper.forEach((v, i) => {
+      if(v === null) return;
+      const cx = padX + slotW * i + slotW/2;
+      upperPts.push([cx, scaleY(v)]);
+      lowerPts.push([cx, scaleY(bb.lower[i])]);
+    });
+    if(upperPts.length > 1){
+      bbUpperPath = upperPts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+      bbLowerPath = lowerPts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    }
+  }
+
   const labelCount = Math.min(5, labels.length);
   const labelIdxs = Array.from({length: labelCount}, (_,i) => Math.round(i * (n-1) / (labelCount-1 || 1)));
 
@@ -1117,6 +1292,8 @@ function renderCandlestickChart(ohlc, labels){
   return `
   <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">
     ${gridLines}
+    ${bbUpperPath ? `<path d="${bbUpperPath}" fill="none" stroke="#8FA8C9" stroke-width="1" stroke-dasharray="2,3" opacity="0.6" />` : ''}
+    ${bbLowerPath ? `<path d="${bbLowerPath}" fill="none" stroke="#8FA8C9" stroke-width="1" stroke-dasharray="2,3" opacity="0.6" />` : ''}
     ${candles}
     ${smaPath ? `<path d="${smaPath}" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-linejoin="round" />` : ''}
     ${maxLabel}${minLabel}${xLabels}
@@ -1161,6 +1338,66 @@ function calcMACD(closes){
   const signalLine = calcEMASeries(macdLine, 9);
   const histogram = macdLine.map((v, i) => v - signalLine[i]);
   return { macdLine, signalLine, histogram };
+}
+
+// ADX(14):趋势强度指标,不判断方向,只判断"现在是不是在趋势里"(简化平滑版)
+function calcADX(ohlc, period = 14){
+  if(ohlc.length < period * 2) return null;
+  const highs = ohlc.map(d => d[2]);
+  const lows = ohlc.map(d => d[3]);
+  const closes = ohlc.map(d => d[4]);
+
+  const plusDM = [], minusDM = [], tr = [];
+  for(let i = 1; i < ohlc.length; i++){
+    const upMove = highs[i] - highs[i-1];
+    const downMove = lows[i-1] - lows[i];
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    tr.push(Math.max(highs[i]-lows[i], Math.abs(highs[i]-closes[i-1]), Math.abs(lows[i]-closes[i-1])));
+  }
+
+  function smooth(arr, p){
+    const out = [];
+    for(let i = 0; i < arr.length; i++){
+      if(i < p - 1){ out.push(null); continue; }
+      const slice = arr.slice(i - p + 1, i + 1);
+      out.push(slice.reduce((a,b) => a+b, 0) / p);
+    }
+    return out;
+  }
+
+  const smoothTR = smooth(tr, period);
+  const smoothPlusDM = smooth(plusDM, period);
+  const smoothMinusDM = smooth(minusDM, period);
+
+  const dx = [];
+  for(let i = 0; i < tr.length; i++){
+    if(smoothTR[i] === null || smoothTR[i] === 0) continue;
+    const plusDI = 100 * smoothPlusDM[i] / smoothTR[i];
+    const minusDI = 100 * smoothMinusDM[i] / smoothTR[i];
+    const sum = plusDI + minusDI;
+    dx.push(sum === 0 ? 0 : 100 * Math.abs(plusDI - minusDI) / sum);
+  }
+
+  if(dx.length < period) return null;
+  return dx.slice(-period).reduce((a,b) => a+b, 0) / period;
+}
+
+// 布林带(20周期,2倍标准差)
+function calcBollingerBands(closes, period = 20, mult = 2){
+  if(closes.length < period) return null;
+  const upper = [], lower = [], middle = [];
+  for(let i = 0; i < closes.length; i++){
+    if(i < period - 1){ upper.push(null); lower.push(null); middle.push(null); continue; }
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean = slice.reduce((a,b) => a+b, 0) / period;
+    const variance = slice.reduce((a,b) => a + (b-mean)**2, 0) / period;
+    const sd = Math.sqrt(variance);
+    middle.push(mean);
+    upper.push(mean + mult * sd);
+    lower.push(mean - mult * sd);
+  }
+  return { upper, middle, lower };
 }
 
 function renderMacdChart(macd){
@@ -1228,12 +1465,19 @@ function redrawChart(){
     else if(rsi14 <= 30) rsiTag = '超卖';
   }
 
+  const adx = calcADX(slice, 14);
+  let adxTag = '';
+  if(adx !== null){
+    adxTag = adx >= 25 ? '有趋势' : adx <= 15 ? '偏震荡' : '中等';
+  }
+
   const zoomedNote = (s > 0 || e < fullOhlc.length-1) ? ' · 已缩放' : '';
 
   strip.innerHTML = `
     <span>区间涨跌 <b class="${rangeChange>=0?'up':'down'}">${rangeChange>=0?'+':''}${rangeChange.toFixed(2)}%</b>${zoomedNote}</span>
     <span>SMA(7) <b>${sma7 ? fmtUsd(sma7) : '—'}</b></span>
     <span>RSI(14) <b>${rsi14 !== null ? rsi14.toFixed(1) : '—'}</b> · ${rsiTag}</span>
+    <span>ADX(14) <b>${adx !== null ? adx.toFixed(1) : '—'}</b>${adxTag ? ' · ' + adxTag : ''}</span>
   `;
 
   const macdWrap = document.getElementById('macdChartWrap');
@@ -1248,6 +1492,7 @@ function redrawChart(){
   }
 
   latestIndicators.rsi14 = rsi14;
+  latestIndicators.adx = adx;
   latestIndicators.smaBias = (sma7 !== null) ? (last >= sma7 ? 'bull' : 'bear') : null;
   latestIndicators.coin = currentCoin;
   latestIndicators.support = Math.min(...slice.map(d => d[3]));
@@ -1405,8 +1650,103 @@ chartWrap.addEventListener('dblclick', () => {
   redrawChart();
 });
 
+/* ---------- 仓位计算器(纯算数,不建议具体倍数/止损点位) ---------- */
+
+function updatePositionCalculator(){
+  const account = parseFloat(document.getElementById('calcAccount').value);
+  const riskPct = parseFloat(document.getElementById('calcRiskPct').value);
+  const stopPct = parseFloat(document.getElementById('calcStopPct').value);
+  const margin = parseFloat(document.getElementById('calcMargin').value);
+  const resultEl = document.getElementById('calcResult');
+
+  if(!account || !riskPct || !stopPct || account <= 0 || riskPct <= 0 || stopPct <= 0){
+    resultEl.textContent = '填写左边的数字,这里会显示计算结果';
+    return;
+  }
+
+  const riskAmount = account * (riskPct / 100);
+  const positionSize = riskAmount / (stopPct / 100);
+
+  let html = `
+    <div class="calc-row"><span>这笔愿意承担的风险金额</span><b>$${riskAmount.toFixed(2)}</b></div>
+    <div class="calc-row"><span>对应的仓位价值(名义本金)</span><b>$${positionSize.toFixed(2)}</b></div>
+  `;
+
+  if(margin && margin > 0){
+    const impliedLeverage = positionSize / margin;
+    html += `<div class="calc-row"><span>若投入保证金 $${margin.toFixed(2)},对应杠杆</span><b>${impliedLeverage.toFixed(1)}x</b></div>`;
+  } else {
+    html += `<div class="calc-row" style="color:var(--muted); font-size:11.5px;"><span>填写"计划投入保证金"可以看到对应杠杆倍数</span></div>`;
+  }
+
+  resultEl.innerHTML = html;
+}
+
+['calcAccount', 'calcRiskPct', 'calcStopPct', 'calcMargin'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePositionCalculator);
+});
+
+/* ---------- 相关性矩阵 ---------- */
+
+function toReturns(closes){
+  const out = [];
+  for(let i = 1; i < closes.length; i++){
+    out.push((closes[i] - closes[i-1]) / closes[i-1]);
+  }
+  return out;
+}
+
+function pearsonCorrelation(a, b){
+  const n = Math.min(a.length, b.length);
+  if(n < 2) return null;
+  const aSlice = a.slice(-n), bSlice = b.slice(-n);
+  const meanA = aSlice.reduce((x,y) => x+y, 0) / n;
+  const meanB = bSlice.reduce((x,y) => x+y, 0) / n;
+  let num = 0, denomA = 0, denomB = 0;
+  for(let i = 0; i < n; i++){
+    const da = aSlice[i] - meanA, db = bSlice[i] - meanB;
+    num += da * db;
+    denomA += da * da;
+    denomB += db * db;
+  }
+  const denom = Math.sqrt(denomA * denomB);
+  return denom === 0 ? null : num / denom;
+}
+
+async function loadCorrelationMatrix(){
+  const table = document.getElementById('corrTable');
+  const corrCoins = [
+    { id: 'bitcoin', name: 'BTC' },
+    { id: 'ethereum', name: 'ETH' },
+    { id: 'solana', name: 'SOL' }
+  ];
+
+  try{
+    const results = await Promise.all(corrCoins.map(c =>
+      fetch(`https://api.coingecko.com/api/v3/coins/${c.id}/market_chart?vs_currency=usd&days=3`).then(r => r.json())
+    ));
+    const returnsSets = results.map(r => toReturns(r.prices.map(p => p[1])));
+
+    const rows = corrCoins.map((rowCoin, i) => {
+      const cells = corrCoins.map((colCoin, j) => {
+        if(i === j) return `<td class="diag">1.00</td>`;
+        const corr = pearsonCorrelation(returnsSets[i], returnsSets[j]);
+        if(corr === null) return `<td>—</td>`;
+        const color = Math.abs(corr) >= 0.8 ? (corr > 0 ? 'var(--green)' : 'var(--red)') : 'var(--text)';
+        return `<td style="color:${color}">${corr.toFixed(2)}</td>`;
+      }).join('');
+      return `<tr><th>${rowCoin.name}</th>${cells}</tr>`;
+    }).join('');
+
+    table.innerHTML = `<tr><th></th>${corrCoins.map(c => `<th>${c.name}</th>`).join('')}</tr>${rows}`;
+  }catch(err){
+    table.innerHTML = `<tr><td colspan="4" style="color:var(--red)">相关性数据加载失败:${err.message}</td></tr>`;
+  }
+}
+
 fetchMarketData();
 loadChart(currentCoin, currentDays);
+loadCorrelationMatrix();
 </script>
 </body>
 </html>
