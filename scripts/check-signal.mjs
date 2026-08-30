@@ -201,7 +201,14 @@ async function sendTelegram(text){
   const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: CHAT_ID, text, disable_web_page_preview: true })
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text,
+      disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: [[{ text: '📊 打开信号台网页版', url: DASHBOARD_URL }]]
+      }
+    })
   });
   if(!tgRes.ok){
     console.error('Telegram 发送失败:', await tgRes.text());
@@ -322,7 +329,6 @@ async function main(){
       messageParts.push('');
     }
 
-    messageParts.push(`🔗 查看完整图表:${DASHBOARD_URL}`);
     messageParts.push('⚠️ 机械化技术信号,不构成投资建议');
     await sendTelegram(messageParts.join('\n'));
   }else{
