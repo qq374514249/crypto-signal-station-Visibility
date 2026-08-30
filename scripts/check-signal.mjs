@@ -57,6 +57,69 @@ function calcMACD(closes){
   return { macdLine, signalLine };
 }
 
+// 近期波动参考:每小时收益率的标准差(不是严格意义上的ATR,因为这里没有真正的高低点数据,
+// 只是给一个"这个币最近平均每小时大概会晃多少"的客观参考,方便自己判断止损该放多远)
+function calcHourlyVolatility(closes, lookback = 24){
+  const recent = closes.slice(-(lookback + 1));
+  if(recent.length < 3) return null;
+  const returns = [];
+  for(let i = 1; i < recent.length; i++){
+    returns.push((recent[i] - recent[i - 1]) / recent[i - 1]);
+  }
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / returns.length;
+  return Math.sqrt(variance); // 小数形式,比如 0.006 代表 0.6%
+}
+
+// ADX(14):趋势强度指标,不判断方向,只判断"现在是不是在趋势里"
+// (用简化的滑动平均做平滑,不是严格的 Wilder 平滑,但足够反映强弱变化趋势)
+function calcADX(ohlc, period = 14){
+  if(ohlc.length < period * 2) return null;
+  const highs = ohlc.map(d => d[2]);
+  const lows = ohlc.map(d => d[3]);
+  const closes = ohlc.map(d => d[4]);
+
+  const plusDM = [], minusDM = [], tr = [];
+  for(let i = 1; i < ohlc.length; i++){
+    const upMove = highs[i] - highs[i - 1];
+    const downMove = lows[i - 1] - lows[i];
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+    tr.push(Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    ));
+  }
+
+  function smooth(arr, p){
+    const out = [];
+    for(let i = 0; i < arr.length; i++){
+      if(i < p - 1){ out.push(null); continue; }
+      const slice = arr.slice(i - p + 1, i + 1);
+      out.push(slice.reduce((a, b) => a + b, 0) / p);
+    }
+    return out;
+  }
+
+  const smoothTR = smooth(tr, period);
+  const smoothPlusDM = smooth(plusDM, period);
+  const smoothMinusDM = smooth(minusDM, period);
+
+  const dx = [];
+  for(let i = 0; i < tr.length; i++){
+    if(smoothTR[i] === null || smoothTR[i] === 0){ continue; }
+    const plusDI = 100 * smoothPlusDM[i] / smoothTR[i];
+    const minusDI = 100 * smoothMinusDM[i] / smoothTR[i];
+    const sum = plusDI + minusDI;
+    dx.push(sum === 0 ? 0 : 100 * Math.abs(plusDI - minusDI) / sum);
+  }
+
+  if(dx.length < period) return null;
+  const lastPeriodDx = dx.slice(-period);
+  return lastPeriodDx.reduce((a, b) => a + b, 0) / period;
+}
+
 async function fetchJson(url){
   const res = await fetch(url);
   if(!res.ok) throw new Error(`请求失败 ${res.status}: ${url}`);
@@ -82,6 +145,16 @@ async function computeCoinSignal(coin, fngValue){
   const rsi14 = calcRSI(closes, 14);
   const sma7 = calcSMA(closes, 7);
   const macd = calcMACD(closes);
+  const hourlyVol = calcHourlyVolatility(closes, 24);
+
+  // 拉真正的 OHLC(30分钟颗粒度,近1天)专门用来算 ADX,因为 market_chart 没有高低点数据
+  let adx = null;
+  try{
+    const ohlc = await fetchJson(`https://api.coingecko.com/api/v3/coins/${coin.id}/ohlc?vs_currency=usd&days=1`);
+    adx = calcADX(ohlc, 14);
+  }catch(e){
+    console.warn(`${coin.name} ADX 计算数据获取失败(跳过):`, e.message);
+  }
 
   let fundingRate = null;
   try{
@@ -89,6 +162,15 @@ async function computeCoinSignal(coin, fngValue){
     fundingRate = parseFloat(fund.lastFundingRate) * 100;
   }catch(e){
     console.warn(`${coin.name} 资金费率获取失败(跳过):`, e.message);
+  }
+
+  // 多空持仓账户比例(不同于资金费率,这个是实际账户数的多空比,同样是判断"是否拥挤"的参考)
+  let longShortRatio = null;
+  try{
+    const lsData = await fetchJson(`https://fapi.binance.com/futures/data/globalLongShortAccountRatio?symbol=${coin.binanceSymbol}&period=1h&limit=1`);
+    if(Array.isArray(lsData) && lsData[0]) longShortRatio = parseFloat(lsData[0].longShortRatio);
+  }catch(e){
+    console.warn(`${coin.name} 多空持仓比例获取失败(跳过):`, e.message);
   }
 
   const factors = [];
@@ -126,10 +208,25 @@ async function computeCoinSignal(coin, fngValue){
     factors.push({ name: '资金费率', verdict: frV, reason: `费率 ${fundingRate.toFixed(4)}%` });
   }
 
+  if(longShortRatio !== null){
+    let lsV = 'neutral';
+    if(longShortRatio >= 2.0){ lsV = 'bear'; score -= 1; }
+    else if(longShortRatio <= 0.6){ lsV = 'bull'; score += 1; }
+    factors.push({ name: '多空持仓比', verdict: lsV, reason: `多空比 ${longShortRatio.toFixed(2)}${lsV === 'bear' ? '(多头过于拥挤)' : lsV === 'bull' ? '(空头过于拥挤)' : ''}` });
+  }
+
+  // ADX 不参与打分(它只反映趋势强弱,不反映方向),但作为一条独立的解读性说明附在最后
+  if(adx !== null){
+    const trendNote = adx >= 25 ? '当前有明显趋势,趋势类指标(MACD/均线)参考价值较高'
+      : adx <= 15 ? '当前偏震荡,趋势类指标容易被打脸,谨慎参考'
+      : '趋势强度中等';
+    factors.push({ name: 'ADX(14) 趋势强度', verdict: 'neutral', reason: `${adx.toFixed(1)} · ${trendNote}` });
+  }
+
   const label = classify(score);
   const pricePos = resistance > support ? ((currentPrice - support) / (resistance - support) * 100) : 50;
 
-  return { label, score, factors, currentPrice, support, resistance, pricePos };
+  return { label, score, factors, currentPrice, support, resistance, pricePos, hourlyVol };
 }
 
 function titleMatchesKeywords(title, keywords){
@@ -260,10 +357,14 @@ async function main(){
     });
 
     if(notify){
+      const volLine = result.hourlyVol !== null
+        ? `波动参考:近24h每小时约 ±${(result.hourlyVol * 100).toFixed(2)}%(约 $${(result.hourlyVol * result.currentPrice).toFixed(result.currentPrice < 1 ? 6 : 0)})`
+        : null;
       changedBlocks.push(
         [
           `🎯 ${coin.name} 信号变化:${displayPrevLabel} → ${rawLabel}`,
           `现价 $${result.currentPrice.toLocaleString('en-US', { maximumFractionDigits: result.currentPrice < 1 ? 6 : 0 })} | 评分 ${result.score >= 0 ? '+' : ''}${result.score} | 区间位置 ${result.pricePos.toFixed(0)}%`,
+          ...(volLine ? [volLine] : []),
           ...result.factors.map(f => `${f.verdict === 'bull' ? '▲' : f.verdict === 'bear' ? '▼' : '●'} ${f.name}:${f.reason}`)
         ].join('\n')
       );
