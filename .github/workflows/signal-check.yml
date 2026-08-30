@@ -1,0 +1,35 @@
+name: Check Crypto Signal
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # 每30分钟跑一次(UTC时间,GitHub不保证绝对准时)
+  workflow_dispatch: {}       # 允许在 Actions 页面手动点击运行,方便测试
+
+permissions:
+  contents: write             # 允许工作流把最新状态提交回仓库
+
+jobs:
+  check-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 运行信号检测脚本
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/check-signal.mjs
+
+      - name: 提交更新后的状态文件
+        run: |
+          git config user.name "signal-bot"
+          git config user.email "actions@github.com"
+          git add signal-state.json
+          git diff --staged --quiet || git commit -m "更新信号状态"
+          git push
