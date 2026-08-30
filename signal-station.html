@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>信号台 · Signal Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A0D12;
+    --panel: #12161D;
+    --panel-2: #171C24;
+    --hairline: #232830;
+    --gold: #C9A66B;
+    --gold-dim: #8A7550;
+    --green: #4FBF7B;
+    --red: #D6624C;
+    --text: #E9E6DE;
+    --muted: #7C838F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family:'Space Grotesk', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono', monospace;}
+  .serif{font-family:'Source Serif 4', serif;}
+
+  .wrap{
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  /* Header */
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 18px;
+    margin-bottom: 22px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand .dot{
+    width:9px; height:9px; border-radius:50%;
+    background: var(--green);
+    box-shadow: 0 0 0 3px rgba(79,191,123,0.15);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.35; }
+  }
+  .brand h1{
+    font-size: 22px;
+    letter-spacing: 0.5px;
+    margin:0;
+    font-weight:700;
+  }
+  .brand h1 span{ color: var(--gold); }
+  .meta{
+    text-align:right;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .meta .mono{ color: var(--text); }
+  #refreshBtn{
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 3px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    cursor:pointer;
+    margin-top:6px;
+    transition: border-color .2s;
+  }
+  #refreshBtn:hover{ border-color: var(--gold-dim); }
+  #refreshBtn:focus-visible{ outline: 2px solid var(--gold); outline-offset:2px; }
+
+  /* Ticker */
+  .ticker-frame{
+    border-top: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+    overflow: hidden;
+    margin-bottom: 26px;
+    background: var(--panel);
+  }
+  .ticker-track{
+    display:flex;
+    white-space:nowrap;
+    width: max-content;
+    animation: scroll 28s linear infinite;
+    padding: 10px 0;
+  }
+  @keyframes scroll{
+    from{ transform: translateX(0); }
+    to{ transform: translateX(-50%); }
+  }
+  .tick-item{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 0 26px;
+    color: var(--muted);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .tick-item b{ color: var(--text); font-weight:500; }
+  .up{ color: var(--green); }
+  .down{ color: var(--red); }
+
+  /* Grid layout */
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 22px;
+  }
+  @media (max-width: 760px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .section-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display:block;
+  }
+
+  /* Indicator cards */
+  .cards{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .card{
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 14px 16px;
+  }
+  .card .label{
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .card .value{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+  }
+  .card .sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  .card.wide{ grid-column: 1 / -1; }
+
+  .card-head{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .card-icon{
+    width: 26px; height: 26px;
+    flex-shrink: 0;
+    border-radius: 5px;
+    background: rgba(201,166,107,0.08);
+    border: 1px solid var(--hairline);
+    color: var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .card .label{ margin-bottom:0; }
+  .card .hint{
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+    line-height: 1.5;
+  }
+
+  /* Signal panel */
+  .signal-panel{
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin-bottom: 22px;
+  }
+  .signal-head{
+    display:flex;
+    align-items:center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .action-hero{
+    display:flex;
+    align-items:center;
+    gap: 18px;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--hairline);
+    flex-wrap: wrap;
+  }
+  .action-arrow{
+    width: 52px; height: 52px;
+    border-radius: 8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 26px;
+    flex-shrink:0;
+    border: 1px solid var(--hairline);
+  }
+  .action-arrow.tone-bull{ color: var(--green); background: rgba(79,191,123,0.10); border-color: rgba(79,191,123,0.4); }
+  .action-arrow.tone-bear{ color: var(--red); background: rgba(214,98,76,0.10); border-color: rgba(214,98,76,0.4); }
+  .action-arrow.tone-neutral{ color: var(--muted); background: rgba(124,131,143,0.08); }
+  .action-info{ flex: 1; min-width: 220px; }
+  .action-title{ font-size: 17px; font-weight: 700; margin-bottom: 3px; }
+  .action-detail{ color: var(--muted); font-size: 12.5px; line-height:1.5; }
+  .action-price{
+    font-family:'IBM Plex Mono', monospace;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .action-price .cur{ font-size: 20px; font-weight:600; color:var(--text); }
+  .action-price .lbl{ font-size: 10.5px; color: var(--muted); letter-spacing: 0.5px; }
+  .range-gauge{ margin-top: 12px; }
+  .range-gauge-row{
+    display:flex; align-items:center; gap: 10px;
+    font-family:'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted);
+  }
+  .range-gauge-bar{
+    flex:1; height:6px; border-radius:3px; position:relative;
+    background: linear-gradient(90deg, var(--green), var(--hairline) 50%, var(--red));
+  }
+  .range-gauge-marker{
+    position:absolute; top:-4px; width:2px; height:14px;
+    background: var(--text); transform: translateX(-1px);
+  }
+  .range-gauge-note{ font-size:11px; color:var(--muted); margin-top:6px; }
+  .signal-badge{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 5px;
+    border: 1px solid var(--hairline);
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap;
+  }
+  .signal-badge .arrow{ font-size: 15px; }
+  .signal-badge .label{ font-size: 13px; font-weight: 600; color: var(--text); }
+  .signal-badge .score{ font-size: 11px; color: var(--muted); }
+  .signal-badge.tone-bull{ border-color: rgba(79,191,123,0.4); background: rgba(79,191,123,0.08); }
+  .signal-badge.tone-bull .arrow{ color: var(--green); }
+  .signal-badge.tone-bear{ border-color: rgba(214,98,76,0.4); background: rgba(214,98,76,0.08); }
+  .signal-badge.tone-bear .arrow{ color: var(--red); }
+  .signal-badge.tone-neutral .arrow{ color: var(--muted); }
+  .signal-desc{ color: var(--muted); font-size: 13px; flex: 1; min-width: 200px; }
+  .signal-factors{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+  }
+  @media (max-width: 700px){ .signal-factors{ grid-template-columns: 1fr; } }
+  .factor-row{
+    display:flex;
+    align-items:flex-start;
+    gap: 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    padding: 6px 0;
+  }
+  .factor-icon{
+    width: 18px; height:18px;
+    border-radius: 50%;
+    flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 10px;
+    margin-top: 1px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .factor-icon.bull{ background: rgba(79,191,123,0.15); color: var(--green); }
+  .factor-icon.bear{ background: rgba(214,98,76,0.15); color: var(--red); }
+  .factor-icon.neutral{ background: rgba(124,131,143,0.15); color: var(--muted); }
+  .factor-name{ color: var(--text); font-weight: 500; flex-shrink:0; }
+  .factor-reason{ color: var(--muted); }
+  .signal-disclaimer{
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--hairline);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .gauge-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .gauge-bar{
+    flex:1;
+    height:6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--red), var(--gold), var(--green));
+    position: relative;
+  }
+  .gauge-marker{
+    position:absolute;
+    top:-4px;
+    width:2px;
+    height:14px;
+    background: var(--text);
+    transform: translateX(-1px);
+  }
+
+  /* Dispatch / AI briefing */
+  .dispatch{
+    background:
+      repeating-linear-gradient(180deg, transparent, transparent 27px, rgba(255,255,255,0.02) 27px, rgba(255,255,255,0.02) 28px),
+      var(--panel-2);
+    border: 1px dashed var(--hairline);
+    border-radius: 4px;
+    padding: 20px 22px;
+    min-height: 340px;
+    display:flex;
+    flex-direction:column;
+  }
+  .dispatch-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+  }
+  .stamp{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--gold);
+    border: 1px solid var(--gold-dim);
+    padding: 3px 8px;
+    border-radius: 2px;
+    transform: rotate(-2deg);
+  }
+  .dispatch-title{
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .dispatch-body{
+    font-family:'Source Serif 4', serif;
+    font-size: 15.5px;
+    line-height: 1.75;
+    color: var(--text);
+    flex:1;
+    white-space: pre-wrap;
+  }
+  .dispatch-body.placeholder{
+    color: var(--muted);
+    font-style: italic;
+  }
+  .gen-btn{
+    margin-top: 16px;
+    align-self: flex-start;
+    background: var(--gold);
+    color: #0A0D12;
+    border: none;
+    padding: 9px 18px;
+    border-radius: 3px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  .gen-btn:hover{ opacity: 0.85; }
+  .gen-btn:disabled{ opacity: 0.4; cursor: default; }
+  .gen-btn:focus-visible{ outline: 2px solid var(--text); outline-offset:2px; }
+
+  .receiving{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color: var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+  .receiving .blink{
+    width:6px;height:6px;border-radius:50%;
+    background: var(--gold);
+    animation: pulse 1s infinite;
+  }
+
+  /* Chart section */
+  .chart-card{
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 16px 18px 10px;
+    margin-bottom: 22px;
+  }
+  .chart-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .coin-tabs{
+    display:flex;
+    gap: 6px;
+  }
+  .coin-tab{
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .coin-tab:hover{ border-color: var(--gold-dim); }
+  .coin-tab.active{
+    color: var(--gold);
+    border-color: var(--gold-dim);
+    background: rgba(201,166,107,0.08);
+  }
+  .range-tabs{ display:flex; gap:4px; }
+  .range-tab{
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .range-tab.active{ color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  .granularity-tabs{
+    display:flex; gap:4px;
+    padding: 0 2px 8px;
+  }
+  .granularity-tabs.hidden{ display:none; }
+  .gran-tab{
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10.5px;
+    padding: 3px 9px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .gran-tab.active{ color: var(--gold); border-color: var(--gold-dim); }
+  .macd-wrap{ height: 64px; position: relative; margin-top: 6px; border-top: 1px dashed var(--hairline); padding-top: 6px; }
+  .macd-label{ font-family:'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+  .chart-wrap{ height: 220px; position: relative; cursor: crosshair; user-select: none; }
+  .chart-tooltip{
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+    border-radius: 3px;
+    padding: 6px 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--muted);
+    pointer-events: none;
+    display: none;
+    white-space: nowrap;
+    z-index: 2;
+  }
+  .chart-tooltip b{ color: var(--text); }
+  .chart-tooltip .up{ color: var(--green); }
+  .chart-tooltip .down{ color: var(--red); }
+  .chart-legend{
+    display:flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 2px 2px 8px;
+  }
+  .chart-legend span{ display:flex; align-items:center; gap:5px; }
+  .chart-legend i{ width:8px; height:8px; border-radius:2px; display:inline-block; }
+  .indicator-strip{
+    display:flex;
+    gap: 24px;
+    padding: 10px 2px 4px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .indicator-strip b{ color: var(--text); }
+
+  footer{
+    margin-top: 30px;
+    padding-top: 16px;
+    border-top: 1px solid var(--hairline);
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.6;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .ticker-track{ animation: none; }
+    .brand .dot, .receiving .blink{ animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <span class="dot"></span>
+      <h1>信号台 <span>SIGNAL STATION</span></h1>
+    </div>
+    <div class="meta">
+      <div>数据更新于 <span class="mono" id="lastUpdated">—</span></div>
+      <button id="refreshBtn">↻ 重新拉取数据</button>
+    </div>
+  </header>
+
+  <div class="ticker-frame">
+    <div class="ticker-track" id="tickerTrack">
+      <div class="tick-item mono">正在接入行情…</div>
+    </div>
+  </div>
+
+  <span class="section-label">📈 价格走势与技术指标</span>
+  <div class="chart-card">
+    <div class="chart-head">
+      <div class="coin-tabs" id="coinTabs">
+        <button class="coin-tab active" data-coin="bitcoin">BTC</button>
+        <button class="coin-tab" data-coin="ethereum">ETH</button>
+        <button class="coin-tab" data-coin="solana">SOL</button>
+      </div>
+      <div class="range-tabs" id="rangeTabs">
+        <button class="range-tab" data-days="1">1D</button>
+        <button class="range-tab" data-days="7">7D</button>
+        <button class="range-tab active" data-days="30">30D</button>
+        <button class="range-tab" data-days="90">90D</button>
+        <button class="range-tab" id="resetZoomBtn" title="重置缩放">⟲ 重置</button>
+      </div>
+    </div>
+    <div class="granularity-tabs hidden" id="granularityTabs">
+      <span style="font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--muted); align-self:center;">颗粒度:</span>
+      <button class="gran-tab active" data-gran="30m">30分钟</button>
+      <button class="gran-tab" data-gran="1h">1小时</button>
+    </div>
+    <div class="chart-legend mono">
+      <span><i style="background:var(--green)"></i>上涨</span>
+      <span><i style="background:var(--red)"></i>下跌</span>
+      <span><i style="background:var(--gold); height:2px; width:12px; border-radius:0;"></i>SMA(7)</span>
+      <span style="margin-left:auto; color:var(--muted);">滚轮缩放 · 拖拽平移</span>
+    </div>
+    <div class="chart-wrap" id="priceChartWrap">
+      <div class="chart-tooltip" id="chartTooltip"></div>
+    </div>
+    <div class="indicator-strip" id="indicatorStrip">
+      <span>加载中…</span>
+    </div>
+    <div class="macd-wrap">
+      <div class="macd-label">MACD (12, 26, 9)</div>
+      <div id="macdChartWrap" style="height:44px;"></div>
+    </div>
+  </div>
+
+  <div class="signal-panel" id="signalPanel">
+    <div class="action-hero" id="actionHero">
+      <div class="action-arrow tone-neutral">●</div>
+      <div class="action-info">
+        <div class="action-title">等待数据…</div>
+        <div class="action-detail">加载完成后,这里会给出清晰的方向参考。</div>
+      </div>
+      <div class="action-price">
+        <div class="lbl">现价</div>
+        <div class="cur">—</div>
+      </div>
+    </div>
+    <div class="range-gauge" id="rangeGauge"></div>
+    <div class="signal-head">
+      <div class="signal-badge tone-neutral">
+        <span class="arrow">●</span>
+        <span class="label">等待数据…</span>
+      </div>
+      <div class="signal-desc">下方为各项指标的具体贡献。</div>
+    </div>
+    <div class="signal-factors" id="signalFactors"></div>
+    <div class="signal-disclaimer">⚠️ 以上为基于技术指标的机械化计算结果,仅描述当前数据状态,不预测未来走势,不构成投资建议。加密市场波动剧烈,请结合自身风险承受能力独立判断。</div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <span class="section-label">📊 市场指标</span>
+      <div class="cards" id="cardsGrid">
+        <div class="card"><div class="label">加载中…</div><div class="value mono">--</div></div>
+      </div>
+    </div>
+
+    <div>
+      <span class="section-label">🤖 AI 信号简报</span>
+      <div class="dispatch">
+        <div class="dispatch-head">
+          <div class="dispatch-title">今日市场速报</div>
+          <div class="stamp">AI 信号</div>
+        </div>
+        <div class="dispatch-body placeholder" id="briefingBody">点击下方按钮,让 AI 读取左侧的实时数据并生成一段简报。</div>
+        <button class="gen-btn" id="genBtn">生成简报 →</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    数据来源:CoinGecko(价格 / 市值)、Alternative.me(恐慌与贪婪指数)。此页面为演示原型,AI 简报由大模型基于上述数据即时生成,仅供信息参考,不构成投资建议。加密资产波动剧烈,请自行研判风险。
+  </footer>
+
+</div>
+
+<script>
+let latestData = null;
+
+function fmtUsd(n){
+  if(n >= 1000) return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0});
+  return '$' + n.toLocaleString('en-US', {maximumFractionDigits: n < 10 ? 4 : 2});
+}
+function fmtPct(n){
+  const s = n>=0 ? '+' : '';
+  return s + n.toFixed(2) + '%';
+}
+
+async function fetchMarketData(){
+  const cardsGrid = document.getElementById('cardsGrid');
+  const tickerTrack = document.getElementById('tickerTrack');
+  cardsGrid.innerHTML = '<div class="card"><div class="label">加载中…</div><div class="value mono">--</div></div>';
+
+  try{
+    const [priceRes, globalRes, fngRes] = await Promise.all([
+      fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true'),
+      fetch('https://api.coingecko.com/api/v3/global'),
+      fetch('https://api.alternative.me/fng/?limit=1')
+    ]);
+
+    const price = await priceRes.json();
+    const global = await globalRes.json();
+    const fng = await fngRes.json();
+
+    const fngVal = parseInt(fng.data[0].value, 10);
+    const fngLabel = fng.data[0].value_classification;
+    const btcDom = global.data.market_cap_percentage.btc;
+    const usdtDom = global.data.market_cap_percentage.usdt;
+    const mcapChange24h = global.data.market_cap_change_percentage_24h_usd;
+
+    // 永续合约资金费率 + 未平仓合约(来自 Binance 公开接口,失败不影响主数据)
+    let funding = null, openInterest = null;
+    try{
+      const [fundRes, oiRes] = await Promise.all([
+        fetch('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT'),
+        fetch('https://fapi.binance.com/fapi/v1/openInterest?symbol=BTCUSDT')
+      ]);
+      const fundJson = await fundRes.json();
+      const oiJson = await oiRes.json();
+      funding = {
+        rate: parseFloat(fundJson.lastFundingRate) * 100,
+        nextTime: fundJson.nextFundingTime
+      };
+      openInterest = {
+        contracts: parseFloat(oiJson.openInterest)
+      };
+    }catch(e){
+      console.warn('资金费率/未平仓合约获取失败(不影响其他数据):', e.message);
+    }
+
+    latestData = {
+      btc: price.bitcoin,
+      eth: price.ethereum,
+      sol: price.solana,
+      fng: { value: fngVal, label: fngLabel },
+      btcDominance: btcDom,
+      usdtDominance: usdtDom,
+      mcapChange24h: mcapChange24h,
+      totalMcap: global.data.total_market_cap.usd,
+      funding: funding,
+      openInterest: openInterest
+    };
+
+    renderCards(latestData);
+    renderTicker(latestData);
+    document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString('zh-CN', {hour12:false});
+
+  }catch(err){
+    cardsGrid.innerHTML = '<div class="card wide"><div class="label">数据拉取失败</div><div class="sub" style="color:var(--red)">' + err.message + '</div></div>';
+    tickerTrack.innerHTML = '<div class="tick-item mono">行情接入失败,请检查网络后重试</div>';
+    console.error(err);
+  }
+}
+
+const coinIcons = { 'BTC / USD': '₿', 'ETH / USD': 'Ξ', 'SOL / USD': '◎' };
+
+function coinCard(name, d){
+  const up = d.usd_24h_change >= 0;
+  const mood = Math.abs(d.usd_24h_change) < 0.3 ? '波动很小' : (up ? '当前偏强' : '当前偏弱');
+  return `<div class="card">
+    <div class="card-head"><span class="card-icon">${coinIcons[name] || '●'}</span><span class="label">${name}</span></div>
+    <div class="value mono">${fmtUsd(d.usd)}</div>
+    <div class="sub mono ${up?'up':'down'}">${fmtPct(d.usd_24h_change)} · 24h · ${mood}</div>
+  </div>`;
+}
+
+function fmtVol(n){
+  if(n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if(n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0});
+}
+
+function fngLabelZh(label){
+  const map = { 'Extreme Fear':'极度恐慌', 'Fear':'恐慌', 'Neutral':'中性', 'Greed':'贪婪', 'Extreme Greed':'极度贪婪' };
+  return map[label] || label;
+}
+
+function cardWithIcon(icon, label, valueHtml, subHtml, hintText, wide){
+  return `<div class="card${wide?' wide':''}">
+    <div class="card-head"><span class="card-icon">${icon}</span><span class="label">${label}</span></div>
+    <div class="value mono">${valueHtml}</div>
+    ${subHtml ? `<div class="sub mono">${subHtml}</div>` : ''}
+    ${hintText ? `<div class="hint">${hintText}</div>` : ''}
+  </div>`;
+}
+
+function renderCards(d){
+  const cardsGrid = document.getElementById('cardsGrid');
+  const fngPct = Math.max(0, Math.min(100, d.fng.value));
+  const ethBtcRatio = d.eth.usd / d.btc.usd;
+  const mcapUp = d.mcapChange24h >= 0;
+  const mcapHint = d.mcapChange24h > 3 ? '全市场明显走强' : d.mcapChange24h < -3 ? '全市场明显走弱' : '整体变化平稳';
+
+  const usdtDom = d.usdtDominance;
+  const usdtHint = usdtDom == null ? '' : usdtDom > 6 ? '资金相对谨慎,更多停留在稳定币里' : usdtDom < 4 ? '资金更愿意追逐风险资产' : '处于常见水平';
+
+  let fundingCard;
+  if(d.funding){
+    const fr = d.funding.rate;
+    const fUp = fr >= 0;
+    const nextTime = new Date(d.funding.nextTime).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
+    const frHint = fr >= 0.05 ? '多头持仓拥挤,注意回调风险' : fr <= -0.02 ? '空头持仓拥挤,存在反弹可能' : '多空力量大致平衡';
+    fundingCard = cardWithIcon('⚡', 'BTC 永续资金费率',
+      `<span class="${fUp?'up':'down'}">${fUp?'+':''}${fr.toFixed(4)}%</span>`,
+      `下次结算 ${nextTime}`, frHint);
+  } else {
+    fundingCard = cardWithIcon('⚡', 'BTC 永续资金费率', '<span style="color:var(--muted); font-size:14px;">暂无数据</span>');
+  }
+
+  let oiCard;
+  if(d.openInterest){
+    const oiUsd = d.openInterest.contracts * d.btc.usd;
+    oiCard = cardWithIcon('▦', 'BTC 未平仓合约', fmtVol(oiUsd),
+      `${d.openInterest.contracts.toLocaleString('en-US', {maximumFractionDigits:0})} BTC`,
+      '衡量衍生品市场的杠杆规模');
+  } else {
+    oiCard = cardWithIcon('▦', 'BTC 未平仓合约', '<span style="color:var(--muted); font-size:14px;">暂无数据</span>');
+  }
+
+  cardsGrid.innerHTML = `
+    ${coinCard('BTC / USD', d.btc)}
+    ${coinCard('ETH / USD', d.eth)}
+    ${coinCard('SOL / USD', d.sol)}
+    ${cardWithIcon('◔', 'BTC 市占率', d.btcDominance.toFixed(1)+'%', '总市值 $'+(d.totalMcap/1e12).toFixed(2)+'T')}
+    ${cardWithIcon('Σ', '全市场总市值 24h 变化', `<span class="${mcapUp?'up':'down'}">${mcapUp?'+':''}${d.mcapChange24h.toFixed(2)}%</span>`, null, mcapHint)}
+    ${cardWithIcon('⚓', 'USDT 市值占比', usdtDom ? usdtDom.toFixed(2)+'%' : '—', null, usdtHint || '稳定币占比,辅助观察避险情绪')}
+    ${cardWithIcon('⚖', 'ETH / BTC 比价', ethBtcRatio.toFixed(5))}
+    ${cardWithIcon('▤', 'BTC 24h 成交量', fmtVol(d.btc.usd_24h_vol))}
+    ${fundingCard}
+    ${oiCard}
+    <div class="card wide">
+      <div class="card-head"><span class="card-icon">🌡</span><span class="label">恐慌与贪婪指数 · ${fngLabelZh(d.fng.label)}</span></div>
+      <div class="gauge-row">
+        <span class="mono" style="color:var(--muted); font-size:12px;">恐慌</span>
+        <div class="gauge-bar">
+          <div class="gauge-marker" style="left:${fngPct}%"></div>
+        </div>
+        <span class="mono" style="color:var(--muted); font-size:12px;">贪婪</span>
+        <span class="mono value" style="font-size:16px; min-width:32px; text-align:right;">${d.fng.value}</span>
+      </div>
+    </div>
+  `;
+
+  renderSignalPanel();
+}
+
+function renderTicker(d){
+  const items = [
+    ['BTC', d.btc.usd, d.btc.usd_24h_change],
+    ['ETH', d.eth.usd, d.eth.usd_24h_change],
+    ['SOL', d.sol.usd, d.sol.usd_24h_change],
+  ];
+  const html = items.map(([sym, price, chg]) => {
+    const cls = chg >= 0 ? 'up' : 'down';
+    return `<div class="tick-item mono"><b>${sym}</b> ${fmtUsd(price)} <span class="${cls}">${fmtPct(chg)}</span></div>`;
+  }).join('') + `<div class="tick-item mono">恐慌贪婪指数 <b>${d.fng.value}</b> (${d.fng.label})</div>
+    <div class="tick-item mono">BTC 市占率 <b>${d.btcDominance.toFixed(1)}%</b></div>`;
+
+  document.getElementById('tickerTrack').innerHTML = html + html; // duplicate for seamless scroll
+}
+
+/* ---------- 入场/出场信号引擎(基于现有指标的机械化打分) ---------- */
+
+function computeSignal(){
+  if(!latestData) return null;
+  const factors = [];
+  let score = 0;
+
+  if(latestIndicators.rsi14 !== null){
+    const r = latestIndicators.rsi14;
+    let v = 'neutral', reason = `RSI ${r.toFixed(1)},处于中性区间`;
+    if(r <= 30){ v = 'bull'; score += 1; reason = `RSI ${r.toFixed(1)},进入超卖区间,历史上常见反弹`; }
+    else if(r >= 70){ v = 'bear'; score -= 1; reason = `RSI ${r.toFixed(1)},进入超买区间,需留意回调`; }
+    factors.push({ name: `RSI(14) · ${coinNames[latestIndicators.coin] || ''}`, verdict: v, reason });
+  }
+
+  if(latestIndicators.macdBias){
+    const bull = latestIndicators.macdBias === 'bull';
+    score += bull ? 1 : -1;
+    factors.push({
+      name: `MACD · ${coinNames[latestIndicators.coin] || ''}`,
+      verdict: bull ? 'bull' : 'bear',
+      reason: bull ? 'MACD 线位于信号线上方,短期动能偏多' : 'MACD 线位于信号线下方,短期动能偏空'
+    });
+  }
+
+  if(latestIndicators.smaBias){
+    const bull = latestIndicators.smaBias === 'bull';
+    score += bull ? 1 : -1;
+    factors.push({
+      name: `均线趋势 · ${coinNames[latestIndicators.coin] || ''}`,
+      verdict: bull ? 'bull' : 'bear',
+      reason: bull ? '现价位于 7 日均线上方,短期趋势偏强' : '现价位于 7 日均线下方,短期趋势偏弱'
+    });
+  }
+
+  const fg = latestData.fng.value;
+  let fgV = 'neutral', fgReason = `指数 ${fg},市场情绪中性`;
+  if(fg <= 25){ fgV = 'bull'; score += 1; fgReason = `指数 ${fg},处于极度恐慌区间,历史上常是逆向关注的窗口`; }
+  else if(fg >= 75){ fgV = 'bear'; score -= 1; fgReason = `指数 ${fg},处于极度贪婪区间,情绪偏热需警惕回调`; }
+  factors.push({ name: '恐慌贪婪指数', verdict: fgV, reason: fgReason });
+
+  if(latestData.funding){
+    const fr = latestData.funding.rate;
+    let frV = 'neutral', frReason = `费率 ${fr.toFixed(4)}%,多空力量大致平衡`;
+    if(fr >= 0.05){ frV = 'bear'; score -= 1; frReason = `费率 ${fr.toFixed(4)}%,多头持仓拥挤,注意长仓踩踏风险`; }
+    else if(fr <= -0.02){ frV = 'bull'; score += 1; frReason = `费率为负(${fr.toFixed(4)}%),空头持仓拥挤,存在逼空反弹可能`; }
+    factors.push({ name: 'BTC 资金费率', verdict: frV, reason: frReason });
+  }
+
+  return { score, factors };
+}
+
+function classifySignal(score){
+  if(score >= 3) return { label: '偏多 · 关注入场时机', tone: 'tone-bull', arrow: '▲', desc: '多项指标同时指向偏多,可作为观察入场时机的参考。' };
+  if(score >= 1) return { label: '轻微偏多', tone: 'tone-bull', arrow: '△', desc: '指标略偏多,信号强度一般,建议结合更多确认。' };
+  if(score === 0) return { label: '中性观望', tone: 'tone-neutral', arrow: '●', desc: '多空指标大致平衡,暂无明显方向。' };
+  if(score >= -2) return { label: '轻微偏空', tone: 'tone-bear', arrow: '▽', desc: '指标略偏空,信号强度一般,建议结合更多确认。' };
+  return { label: '偏空 · 关注离场/减仓', tone: 'tone-bear', arrow: '▼', desc: '多项指标同时指向偏空,可作为观察离场或减仓时机的参考。' };
+}
+
+function computePricePosition(){
+  const { support, resistance, currentPrice } = latestIndicators;
+  if(support === null || resistance === null || currentPrice === null) return null;
+  if(resistance === support) return 50;
+  return Math.max(0, Math.min(100, (currentPrice - support) / (resistance - support) * 100));
+}
+
+function buildActionSummary(score, pricePos){
+  const coinLabel = coinNames[latestIndicators.coin] || '标的';
+  if(score === 0 || score === null){
+    return { arrow: '●', tone: 'tone-neutral', title: '观望', detail: `${coinLabel} 当前多空指标大致平衡,暂无明显方向信号。` };
+  }
+  const bull = score > 0;
+  const posKnown = pricePos !== null;
+  const nearSupport = posKnown && pricePos <= 35;
+  const nearResistance = posKnown && pricePos >= 65;
+
+  if(bull){
+    if(nearSupport) return { arrow: '▲', tone: 'tone-bull', title: '做多参考', detail: `指标偏多,且 ${coinLabel} 现价靠近所选区间下沿(支撑附近),是常见的关注入场窗口。` };
+    if(nearResistance) return { arrow: '▲', tone: 'tone-bull', title: '做多参考 · 谨慎追高', detail: `指标偏多,但 ${coinLabel} 现价已运行到所选区间上沿附近,追高需留意透支风险。` };
+    return { arrow: '▲', tone: 'tone-bull', title: '做多参考', detail: `指标偏多,${coinLabel} 现价处于所选区间中部。` };
+  } else {
+    if(nearResistance) return { arrow: '▼', tone: 'tone-bear', title: '做空参考', detail: `指标偏空,且 ${coinLabel} 现价靠近所选区间上沿(阻力附近),是常见的关注离场/减仓窗口。` };
+    if(nearSupport) return { arrow: '▼', tone: 'tone-bear', title: '做空参考 · 谨慎追空', detail: `指标偏空,但 ${coinLabel} 现价已运行到所选区间下沿附近,追空需留意反弹风险。` };
+    return { arrow: '▼', tone: 'tone-bear', title: '做空参考', detail: `指标偏空,${coinLabel} 现价处于所选区间中部。` };
+  }
+}
+
+function renderRangeGauge(pricePos){
+  const wrap = document.getElementById('rangeGauge');
+  const { support, resistance, currentPrice } = latestIndicators;
+  if(pricePos === null){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `
+    <div class="range-gauge-row">
+      <span>支撑 ${fmtUsd(support)}</span>
+      <div class="range-gauge-bar"><div class="range-gauge-marker" style="left:${pricePos}%"></div></div>
+      <span>阻力 ${fmtUsd(resistance)}</span>
+    </div>
+    <div class="range-gauge-note">现价 ${fmtUsd(currentPrice)},位于所选区间的 ${pricePos.toFixed(0)}% 位置(数值来自当前图表可见范围内的最高/最低价)</div>
+  `;
+}
+
+function renderSignalPanel(){
+  const factorsWrap = document.getElementById('signalFactors');
+  const result = computeSignal();
+  if(!result || result.factors.length === 0) return;
+
+  const cls = classifySignal(result.score);
+  const pricePos = computePricePosition();
+  const action = buildActionSummary(result.score, pricePos);
+
+  const hero = document.getElementById('actionHero');
+  const arrowEl = hero.querySelector('.action-arrow');
+  arrowEl.className = `action-arrow ${action.tone}`;
+  arrowEl.textContent = action.arrow;
+  hero.querySelector('.action-title').textContent = action.title;
+  hero.querySelector('.action-detail').textContent = action.detail;
+  hero.querySelector('.action-price .cur').textContent = latestIndicators.currentPrice !== null ? fmtUsd(latestIndicators.currentPrice) : '—';
+
+  renderRangeGauge(pricePos);
+
+  const badge = document.querySelector('#signalPanel .signal-badge');
+  const desc = document.querySelector('#signalPanel .signal-desc');
+  badge.className = `signal-badge ${cls.tone}`;
+  badge.innerHTML = `<span class="arrow">${cls.arrow}</span><span class="label">${cls.label}</span><span class="score mono">综合评分 ${result.score >= 0 ? '+' : ''}${result.score}</span>`;
+  desc.textContent = '下方为各项指标的具体贡献:';
+
+  factorsWrap.innerHTML = result.factors.map(f => {
+    const symbol = f.verdict === 'bull' ? '▲' : f.verdict === 'bear' ? '▼' : '●';
+    return `<div class="factor-row">
+      <span class="factor-icon ${f.verdict}">${symbol}</span>
+      <span class="factor-name">${f.name}</span>
+      <span class="factor-reason">${f.reason}</span>
+    </div>`;
+  }).join('');
+}
+
+async function generateBriefing(){
+  const body = document.getElementById('briefingBody');
+  const btn = document.getElementById('genBtn');
+
+  if(!latestData){
+    body.textContent = '请先等待行情数据加载完成,或点击"重新拉取数据"。';
+    body.classList.add('placeholder');
+    return;
+  }
+
+  btn.disabled = true;
+  body.classList.remove('placeholder');
+  body.innerHTML = '<div class="receiving"><span class="blink"></span> 正在接收信号…AI 正在读取行情并撰写简报</div>';
+
+  const d = latestData;
+  const fundingText = d.funding ? `${d.funding.rate.toFixed(4)}%` : '数据暂缺';
+  const oiText = d.openInterest ? fmtVol(d.openInterest.contracts * d.btc.usd) : '数据暂缺';
+  const sig = computeSignal();
+  const sigText = sig ? `${classifySignal(sig.score).label}(综合评分 ${sig.score >= 0 ? '+' : ''}${sig.score})` : '数据暂缺';
+  const prompt = `你是一名加密货币市场观察员,请基于以下实时数据,用简体中文写一段150-220字的市场简报,语气冷静克制、像新闻电讯稿,不要使用夸张措辞,不要给出投资建议,只做客观描述与可能的关注点提示。
+
+数据:
+- BTC: $${d.btc.usd}, 24小时涨跌 ${d.btc.usd_24h_change.toFixed(2)}%, 24h成交量 ${fmtVol(d.btc.usd_24h_vol)}
+- ETH: $${d.eth.usd}, 24小时涨跌 ${d.eth.usd_24h_change.toFixed(2)}%
+- SOL: $${d.sol.usd}, 24小时涨跌 ${d.sol.usd_24h_change.toFixed(2)}%
+- ETH/BTC 比价: ${(d.eth.usd/d.btc.usd).toFixed(5)}
+- BTC 市占率: ${d.btcDominance.toFixed(1)}%, USDT 市值占比: ${d.usdtDominance ? d.usdtDominance.toFixed(2)+'%' : '数据暂缺'}
+- 全市场总市值: $${(d.totalMcap/1e12).toFixed(2)}万亿, 24h变化 ${d.mcapChange24h.toFixed(2)}%
+- BTC 永续合约资金费率: ${fundingText}
+- BTC 未平仓合约(美元名义价值): ${oiText}
+- 恐慌与贪婪指数: ${d.fng.value} (${d.fng.label})
+- 页面技术指标综合信号: ${sigText}
+
+直接输出简报正文,不要标题,不要markdown格式。`;
+
+  try{
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await response.json();
+    const text = (data.content || []).map(c => c.text || '').join('\n').trim();
+    body.textContent = text || '未能生成简报,请重试。';
+  }catch(err){
+    body.textContent = '简报生成失败:' + err.message;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('refreshBtn').addEventListener('click', fetchMarketData);
+document.getElementById('genBtn').addEventListener('click', generateBriefing);
+
+/* ---------- 价格走势图 + 技术指标 ---------- */
+
+let currentCoin = 'bitcoin';
+let currentDays = 30;
+let currentGranularity = '30m';
+let rawOhlc = [];
+let fullOhlc = [];
+let viewRange = [0, 0];
+let latestIndicators = { rsi14: null, macdBias: null, smaBias: null, coin: null, support: null, resistance: null, currentPrice: null };
+const coinNames = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL' };
+
+function aggregateToHourly(ohlc){
+  const result = [];
+  for(let i = 0; i < ohlc.length; i += 2){
+    const chunk = ohlc.slice(i, i+2);
+    const time = chunk[0][0];
+    const open = chunk[0][1];
+    const high = Math.max(...chunk.map(c => c[2]));
+    const low = Math.min(...chunk.map(c => c[3]));
+    const close = chunk[chunk.length-1][4];
+    result.push([time, open, high, low, close]);
+  }
+  return result;
+}
+
+function applyGranularity(){
+  fullOhlc = (currentDays === 1 && currentGranularity === '1h')
+    ? aggregateToHourly(rawOhlc)
+    : rawOhlc;
+  viewRange = [0, fullOhlc.length - 1];
+}
+
+function renderCandlestickChart(ohlc, labels){
+  const w = 900, h = 220, padTop = 16, padBottom = 26, padX = 10;
+  const innerH = h - padTop - padBottom;
+  const n = ohlc.length;
+
+  const allHighs = ohlc.map(d => d[2]);
+  const allLows = ohlc.map(d => d[3]);
+  const min = Math.min(...allLows), max = Math.max(...allHighs);
+  const range = (max - min) || 1;
+
+  const scaleY = (price) => padTop + innerH * (1 - (price - min) / range);
+
+  const slotW = (w - padX*2) / n;
+  const bodyW = Math.max(1, slotW * 0.55);
+
+  const closes = ohlc.map(d => d[4]);
+
+  const candles = ohlc.map((d, i) => {
+    const [, open, high, low, close] = d;
+    const cx = padX + slotW * i + slotW/2;
+    const up = close >= open;
+    const color = up ? 'var(--green)' : 'var(--red)';
+    const yHigh = scaleY(high), yLow = scaleY(low);
+    const yOpen = scaleY(open), yClose = scaleY(close);
+    const bodyTop = Math.min(yOpen, yClose);
+    const bodyH = Math.max(1, Math.abs(yOpen - yClose));
+    return `<line x1="${cx.toFixed(1)}" y1="${yHigh.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yLow.toFixed(1)}" stroke="${color}" stroke-width="1" />
+      <rect x="${(cx-bodyW/2).toFixed(1)}" y="${bodyTop.toFixed(1)}" width="${bodyW.toFixed(1)}" height="${bodyH.toFixed(1)}" fill="${color}" />`;
+  }).join('');
+
+  const smaPts = [];
+  for(let i = 6; i < closes.length; i++){
+    const avg = closes.slice(i-6, i+1).reduce((a,b)=>a+b,0) / 7;
+    const cx = padX + slotW * i + slotW/2;
+    smaPts.push([cx, scaleY(avg)]);
+  }
+  const smaPath = smaPts.length > 1
+    ? smaPts.map((p,i) => (i===0?'M':'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')
+    : '';
+
+  const labelCount = Math.min(5, labels.length);
+  const labelIdxs = Array.from({length: labelCount}, (_,i) => Math.round(i * (n-1) / (labelCount-1 || 1)));
+
+  const gridLines = [0.25, 0.5, 0.75].map(f => {
+    const y = padTop + innerH * f;
+    return `<line x1="${padX}" y1="${y.toFixed(1)}" x2="${w-padX}" y2="${y.toFixed(1)}" stroke="var(--hairline)" stroke-width="1" />`;
+  }).join('');
+
+  const xLabels = labelIdxs.map(i => {
+    const x = padX + slotW*i + slotW/2;
+    return `<text x="${x.toFixed(1)}" y="${h-8}" font-family="IBM Plex Mono" font-size="10" fill="var(--muted)" text-anchor="middle">${labels[i]}</text>`;
+  }).join('');
+
+  const maxLabel = `<text x="${w-padX}" y="${padTop+8}" font-family="IBM Plex Mono" font-size="10" fill="var(--muted)" text-anchor="end">${fmtUsd(max)}</text>`;
+  const minLabel = `<text x="${w-padX}" y="${h-padBottom-4}" font-family="IBM Plex Mono" font-size="10" fill="var(--muted)" text-anchor="end">${fmtUsd(min)}</text>`;
+
+  return `
+  <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">
+    ${gridLines}
+    ${candles}
+    ${smaPath ? `<path d="${smaPath}" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-linejoin="round" />` : ''}
+    ${maxLabel}${minLabel}${xLabels}
+  </svg>`;
+}
+
+function calcSMA(closes, period){
+  if(closes.length < period) return null;
+  const slice = closes.slice(-period);
+  return slice.reduce((a,b) => a+b, 0) / period;
+}
+
+function calcRSI(closes, period=14){
+  if(closes.length < period + 1) return null;
+  let gains = 0, losses = 0;
+  const slice = closes.slice(-(period+1));
+  for(let i=1; i<slice.length; i++){
+    const diff = slice[i] - slice[i-1];
+    if(diff >= 0) gains += diff; else losses -= diff;
+  }
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  if(avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+function calcEMASeries(values, period){
+  const k = 2 / (period + 1);
+  const out = [values[0]];
+  for(let i = 1; i < values.length; i++){
+    out.push(values[i] * k + out[i-1] * (1 - k));
+  }
+  return out;
+}
+
+function calcMACD(closes){
+  if(closes.length < 26) return null;
+  const ema12 = calcEMASeries(closes, 12);
+  const ema26 = calcEMASeries(closes, 26);
+  const macdLine = closes.map((_, i) => ema12[i] - ema26[i]);
+  const signalLine = calcEMASeries(macdLine, 9);
+  const histogram = macdLine.map((v, i) => v - signalLine[i]);
+  return { macdLine, signalLine, histogram };
+}
+
+function renderMacdChart(macd){
+  const w = 900, h = 44, padX = 10;
+  const n = macd.histogram.length;
+  const slotW = (w - padX*2) / n;
+  const barW = Math.max(1, slotW * 0.55);
+
+  const allVals = [...macd.macdLine, ...macd.signalLine, ...macd.histogram];
+  const maxAbs = Math.max(...allVals.map(v => Math.abs(v))) || 1;
+  const scaleY = (v) => h/2 - (v / maxAbs) * (h/2 - 4);
+
+  const bars = macd.histogram.map((v, i) => {
+    const cx = padX + slotW*i + slotW/2;
+    const y0 = scaleY(0), y1 = scaleY(v);
+    const top = Math.min(y0, y1);
+    const barH = Math.max(1, Math.abs(y0 - y1));
+    const color = v >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<rect x="${(cx-barW/2).toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" fill="${color}" opacity="0.55" />`;
+  }).join('');
+
+  const macdPts = macd.macdLine.map((v,i) => [padX + slotW*i + slotW/2, scaleY(v)]);
+  const sigPts = macd.signalLine.map((v,i) => [padX + slotW*i + slotW/2, scaleY(v)]);
+  const macdPath = macdPts.map((p,i) => (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const sigPath = sigPts.map((p,i) => (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+
+  return `
+  <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">
+    <line x1="${padX}" y1="${(h/2).toFixed(1)}" x2="${w-padX}" y2="${(h/2).toFixed(1)}" stroke="var(--hairline)" stroke-width="1" />
+    ${bars}
+    <path d="${macdPath}" fill="none" stroke="#8FA8C9" stroke-width="1.25" />
+    <path d="${sigPath}" fill="none" stroke="var(--gold)" stroke-width="1.25" stroke-dasharray="3,2" />
+  </svg>`;
+}
+
+
+function fmtLabelForDays(timestamp){
+  const dt = new Date(timestamp);
+  if(currentDays <= 1) return dt.toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit', hour12:false});
+  if(currentDays <= 7) return dt.toLocaleDateString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit'});
+  return dt.toLocaleDateString('zh-CN', {month:'numeric', day:'numeric'});
+}
+
+function redrawChart(){
+  const strip = document.getElementById('indicatorStrip');
+  if(!fullOhlc.length) return;
+
+  const [s, e] = viewRange;
+  const slice = fullOhlc.slice(s, e+1);
+  const labels = slice.map(d => fmtLabelForDays(d[0]));
+  const wrap = document.getElementById('priceChartWrap');
+  const tooltip = document.getElementById('chartTooltip');
+  wrap.innerHTML = renderCandlestickChart(slice, labels);
+  wrap.appendChild(tooltip); // keep tooltip node alive across redraws
+
+  const closes = slice.map(d => d[4]);
+  const sma7 = calcSMA(closes, 7);
+  const rsi14 = calcRSI(closes, 14);
+  const first = closes[0], last = closes[closes.length-1];
+  const rangeChange = ((last - first) / first * 100);
+
+  let rsiTag = '中性';
+  if(rsi14 !== null){
+    if(rsi14 >= 70) rsiTag = '超买';
+    else if(rsi14 <= 30) rsiTag = '超卖';
+  }
+
+  const zoomedNote = (s > 0 || e < fullOhlc.length-1) ? ' · 已缩放' : '';
+
+  strip.innerHTML = `
+    <span>区间涨跌 <b class="${rangeChange>=0?'up':'down'}">${rangeChange>=0?'+':''}${rangeChange.toFixed(2)}%</b>${zoomedNote}</span>
+    <span>SMA(7) <b>${sma7 ? fmtUsd(sma7) : '—'}</b></span>
+    <span>RSI(14) <b>${rsi14 !== null ? rsi14.toFixed(1) : '—'}</b> · ${rsiTag}</span>
+  `;
+
+  const macdWrap = document.getElementById('macdChartWrap');
+  const macd = calcMACD(closes);
+  if(macd){
+    macdWrap.innerHTML = renderMacdChart(macd);
+    const li = macd.macdLine.length - 1;
+    latestIndicators.macdBias = macd.macdLine[li] >= macd.signalLine[li] ? 'bull' : 'bear';
+  } else {
+    macdWrap.innerHTML = '<div style="font-family:\'IBM Plex Mono\',monospace; font-size:11px; color:var(--muted); padding-top:6px;">当前区间数据点不足,无法计算 MACD</div>';
+    latestIndicators.macdBias = null;
+  }
+
+  latestIndicators.rsi14 = rsi14;
+  latestIndicators.smaBias = (sma7 !== null) ? (last >= sma7 ? 'bull' : 'bear') : null;
+  latestIndicators.coin = currentCoin;
+  latestIndicators.support = Math.min(...slice.map(d => d[3]));
+  latestIndicators.resistance = Math.max(...slice.map(d => d[2]));
+  latestIndicators.currentPrice = last;
+  renderSignalPanel();
+}
+
+async function loadChart(coin, days){
+  const strip = document.getElementById('indicatorStrip');
+  strip.innerHTML = '<span>加载中…</span>';
+
+  try{
+    const res = await fetch(`https://api.coingecko.com/api/v3/coins/${coin}/ohlc?vs_currency=usd&days=${days}`);
+    const ohlc = await res.json(); // [ [time, open, high, low, close], ... ]
+    if(!Array.isArray(ohlc) || ohlc.length === 0) throw new Error('无返回数据');
+    rawOhlc = ohlc;
+    applyGranularity();
+    redrawChart();
+  }catch(err){
+    strip.innerHTML = '<span style="color:var(--red)">走势数据加载失败:' + err.message + '</span>';
+    console.error(err);
+  }
+}
+
+document.getElementById('coinTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.coin-tab');
+  if(!btn) return;
+  document.querySelectorAll('.coin-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentCoin = btn.dataset.coin;
+  loadChart(currentCoin, currentDays);
+});
+
+document.getElementById('rangeTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.range-tab');
+  if(!btn || btn.id === 'resetZoomBtn') return;
+  document.querySelectorAll('.range-tab').forEach(b => { if(b.id !== 'resetZoomBtn') b.classList.remove('active'); });
+  btn.classList.add('active');
+  currentDays = parseInt(btn.dataset.days, 10);
+
+  const granTabs = document.getElementById('granularityTabs');
+  if(currentDays === 1){
+    granTabs.classList.remove('hidden');
+  } else {
+    granTabs.classList.add('hidden');
+  }
+
+  loadChart(currentCoin, currentDays);
+});
+
+document.getElementById('granularityTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.gran-tab');
+  if(!btn) return;
+  document.querySelectorAll('.gran-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentGranularity = btn.dataset.gran;
+  applyGranularity();
+  redrawChart();
+});
+
+document.getElementById('resetZoomBtn').addEventListener('click', () => {
+  if(!fullOhlc.length) return;
+  viewRange = [0, fullOhlc.length - 1];
+  redrawChart();
+});
+
+/* ---- 缩放 / 平移 / 悬浮提示 ---- */
+const chartWrap = document.getElementById('priceChartWrap');
+const tooltipEl = document.getElementById('chartTooltip');
+
+chartWrap.addEventListener('wheel', (e) => {
+  if(!fullOhlc.length) return;
+  e.preventDefault();
+  const total = fullOhlc.length;
+  const [s, en] = viewRange;
+  const rangeLen = en - s + 1;
+  const rect = chartWrap.getBoundingClientRect();
+  const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  const cursorIdx = s + frac * (rangeLen - 1);
+  const zoomFactor = e.deltaY < 0 ? 0.85 : 1.18; // 上滚放大, 下滚缩小
+  let newLen = Math.round(rangeLen * zoomFactor);
+  newLen = Math.max(10, Math.min(total, newLen));
+  let newS = Math.round(cursorIdx - frac * (newLen - 1));
+  let newE = newS + newLen - 1;
+  if(newS < 0){ newE -= newS; newS = 0; }
+  if(newE > total - 1){ newS -= (newE - (total - 1)); newE = total - 1; }
+  newS = Math.max(0, newS);
+  viewRange = [newS, newE];
+  redrawChart();
+}, { passive: false });
+
+let isDragging = false, dragStartX = 0, dragStartRange = null;
+
+chartWrap.addEventListener('mousedown', (e) => {
+  if(!fullOhlc.length) return;
+  isDragging = true;
+  dragStartX = e.clientX;
+  dragStartRange = [...viewRange];
+  chartWrap.style.cursor = 'grabbing';
+});
+
+function handleHover(e){
+  if(!fullOhlc.length) return;
+  const rect = chartWrap.getBoundingClientRect();
+  const [s, en] = viewRange;
+  const rangeLen = en - s + 1;
+  const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  const idx = s + Math.round(frac * (rangeLen - 1));
+  const d = fullOhlc[idx];
+  if(!d) return;
+  const [t, open, high, low, close] = d;
+  const up = close >= open;
+  tooltipEl.innerHTML = `
+    <div>${fmtLabelForDays(t)}</div>
+    <div>开 <b>${fmtUsd(open)}</b> &nbsp;高 <b>${fmtUsd(high)}</b></div>
+    <div>低 <b>${fmtUsd(low)}</b> &nbsp;收 <b class="${up?'up':'down'}">${fmtUsd(close)}</b></div>
+  `;
+  tooltipEl.style.display = 'block';
+}
+
+chartWrap.addEventListener('mousemove', (e) => {
+  if(isDragging){
+    const rect = chartWrap.getBoundingClientRect();
+    const total = fullOhlc.length;
+    const rangeLen = dragStartRange[1] - dragStartRange[0] + 1;
+    const dx = e.clientX - dragStartX;
+    const idxMoved = Math.round((dx / rect.width) * rangeLen);
+    let newS = dragStartRange[0] - idxMoved;
+    let newE = dragStartRange[1] - idxMoved;
+    if(newS < 0){ newE -= newS; newS = 0; }
+    if(newE > total - 1){ newS -= (newE - (total - 1)); newE = total - 1; }
+    newS = Math.max(0, newS);
+    viewRange = [newS, newE];
+    redrawChart();
+  } else {
+    handleHover(e);
+  }
+});
+
+chartWrap.addEventListener('mouseleave', () => {
+  tooltipEl.style.display = 'none';
+});
+
+window.addEventListener('mouseup', () => {
+  if(isDragging){
+    isDragging = false;
+    chartWrap.style.cursor = 'crosshair';
+  }
+});
+
+chartWrap.addEventListener('dblclick', () => {
+  if(!fullOhlc.length) return;
+  viewRange = [0, fullOhlc.length - 1];
+  redrawChart();
+});
+
+fetchMarketData();
+loadChart(currentCoin, currentDays);
+</script>
+</body>
+</html>
