@@ -1,10 +1,20 @@
 // scripts/check-signal.mjs
-// 定时拉取 BTC 数据(1小时颗粒度)、计算信号,只有信号发生变化时才推送 Telegram 通知
+// 定时拉取 BTC/ETH/SOL/DOGE 数据(1小时颗粒度)、分别计算信号,
+// 只有某个币种信号发生变化时,才把当次变化 + 24小时内市场新闻一起推送 Telegram
+
 import fs from 'fs';
 
 const STATE_FILE = 'signal-state.json';
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+// 想增减关注的币种,改这个数组就行
+const COINS = [
+  { id: 'bitcoin', name: 'BTC', binanceSymbol: 'BTCUSDT' },
+  { id: 'ethereum', name: 'ETH', binanceSymbol: 'ETHUSDT' },
+  { id: 'solana', name: 'SOL', binanceSymbol: 'SOLUSDT' },
+  { id: 'dogecoin', name: 'DOGE', binanceSymbol: 'DOGEUSDT' },
+];
 
 function calcSMA(closes, period){
   if(closes.length < period) return null;
@@ -57,17 +67,11 @@ function classify(score){
   return '偏空 · 关注离场/减仓';
 }
 
-async function main(){
-  if(!BOT_TOKEN || !CHAT_ID){
-    console.error('缺少 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID 环境变量(需要在仓库 Secrets 里配置)');
-    process.exit(1);
-  }
-
-  // 1. 价格数据:market_chart 接口在 2-90 天范围内会自动返回逐小时数据(免费、不需要key)
-  const chart = await fetchJson('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=3');
+// 计算单个币种的信号
+async function computeCoinSignal(coin, fngValue){
+  const chart = await fetchJson(`https://api.coingecko.com/api/v3/coins/${coin.id}/market_chart?vs_currency=usd&days=3`);
   const closes = chart.prices.map(p => p[1]);
   const currentPrice = closes[closes.length - 1];
-  // 注:market_chart 只给价格点,没有真正的每小时最高/最低,这里用价格序列本身的极值近似支撑/阻力
   const support = Math.min(...closes);
   const resistance = Math.max(...closes);
 
@@ -75,20 +79,14 @@ async function main(){
   const sma7 = calcSMA(closes, 7);
   const macd = calcMACD(closes);
 
-  // 2. 恐慌贪婪指数
-  const fng = await fetchJson('https://api.alternative.me/fng/?limit=1');
-  const fngValue = parseInt(fng.data[0].value, 10);
-
-  // 3. 资金费率(失败不影响整体运行)
   let fundingRate = null;
   try{
-    const fund = await fetchJson('https://fapi.binance.com/fapi/v1/premiumIndex?symbol=BTCUSDT');
+    const fund = await fetchJson(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${coin.binanceSymbol}`);
     fundingRate = parseFloat(fund.lastFundingRate) * 100;
   }catch(e){
-    console.warn('资金费率获取失败(跳过):', e.message);
+    console.warn(`${coin.name} 资金费率获取失败(跳过):`, e.message);
   }
 
-  // 4. 打分逻辑(与网页信号面板一致)
   const factors = [];
   let score = 0;
 
@@ -125,46 +123,115 @@ async function main(){
   }
 
   const label = classify(score);
+  const pricePos = resistance > support ? ((currentPrice - support) / (resistance - support) * 100) : 50;
 
-  // 5. 读取上次状态,判断信号是否变化
-  let prev = { label: null, score: null };
+  return { label, score, factors, currentPrice, support, resistance, pricePos };
+}
+
+// 抓取 CoinDesk RSS,只保留过去24小时内的新闻标题
+async function fetchNews(){
   try{
-    prev = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    const res = await fetch('https://www.coindesk.com/arc/outboundfeeds/rss/');
+    if(!res.ok) throw new Error(`新闻源请求失败 ${res.status}`);
+    const xml = await res.text();
+    const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(m => m[1]);
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+
+    const news = items.map(item => {
+      const titleMatch = item.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/);
+      const dateMatch = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
+      const linkMatch = item.match(/<link>([\s\S]*?)<\/link>/);
+      const title = titleMatch ? titleMatch[1].trim() : '';
+      const pubDate = dateMatch ? new Date(dateMatch[1].trim()) : null;
+      const link = linkMatch ? linkMatch[1].trim() : '';
+      return { title, pubDate, link };
+    }).filter(n => n.title);
+
+    const recent = news.filter(n => n.pubDate && !isNaN(n.pubDate) && n.pubDate.getTime() >= cutoff);
+    return recent.slice(0, 4);
   }catch(e){
-    // 文件不存在(首次运行),忽略——首次运行会因为 prev.label 是 null 而必定触发一次通知,方便你测试
+    console.warn('新闻获取失败(跳过):', e.message);
+    return [];
+  }
+}
+
+async function sendTelegram(text){
+  const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: CHAT_ID, text, disable_web_page_preview: true })
+  });
+  if(!tgRes.ok){
+    console.error('Telegram 发送失败:', await tgRes.text());
+  }else{
+    console.log('已发送 Telegram 通知');
+  }
+}
+
+async function main(){
+  if(!BOT_TOKEN || !CHAT_ID){
+    console.error('缺少 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID 环境变量(需要在仓库 Secrets 里配置)');
+    process.exit(1);
   }
 
-  const changed = prev.label !== label;
-  console.log(`当前信号: ${label} (评分 ${score}) | 上次: ${prev.label || '(无记录)'} | 是否变化: ${changed}`);
+  // 恐慌贪婪指数是全市场共用的,只需要拉一次
+  const fng = await fetchJson('https://api.alternative.me/fng/?limit=1');
+  const fngValue = parseInt(fng.data[0].value, 10);
 
-  if(changed){
-    const pricePos = resistance > support ? ((currentPrice - support) / (resistance - support) * 100) : 50;
-    const lines = [
-      `🎯 BTC 信号变化:${prev.label || '(首次运行)'} → ${label}`,
-      '',
-      `现价:$${currentPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}`,
-      `综合评分:${score >= 0 ? '+' : ''}${score}`,
-      `区间位置:${pricePos.toFixed(0)}%(支撑 $${support.toFixed(0)} / 阻力 $${resistance.toFixed(0)})`,
-      '',
-      ...factors.map(f => `${f.verdict === 'bull' ? '▲' : f.verdict === 'bear' ? '▼' : '●'} ${f.name}:${f.reason}`),
-      '',
-      '⚠️ 机械化技术信号,不构成投资建议'
-    ];
+  // 读取上次各币种的状态
+  let prevState = {};
+  try{
+    prevState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+  }catch(e){
+    // 文件不存在(首次运行),忽略
+  }
 
-    const tgRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: CHAT_ID, text: lines.join('\n') })
-    });
-    if(!tgRes.ok){
-      console.error('Telegram 发送失败:', await tgRes.text());
-    }else{
-      console.log('已发送 Telegram 通知');
+  const newState = {};
+  const changedBlocks = [];
+
+  for(const coin of COINS){
+    let result;
+    try{
+      result = await computeCoinSignal(coin, fngValue);
+    }catch(e){
+      console.error(`${coin.name} 信号计算失败(跳过这个币种):`, e.message);
+      continue;
+    }
+
+    const prevLabel = prevState[coin.id]?.label ?? null;
+    const changed = prevLabel !== result.label;
+    console.log(`${coin.name} 当前信号: ${result.label} (评分 ${result.score}) | 上次: ${prevLabel || '(无记录)'} | 是否变化: ${changed}`);
+
+    newState[coin.id] = { label: result.label, score: result.score, checkedAt: new Date().toISOString() };
+
+    if(changed){
+      changedBlocks.push(
+        [
+          `🎯 ${coin.name} 信号变化:${prevLabel || '(首次运行)'} → ${result.label}`,
+          `现价 $${result.currentPrice.toLocaleString('en-US', { maximumFractionDigits: result.currentPrice < 1 ? 6 : 0 })} | 评分 ${result.score >= 0 ? '+' : ''}${result.score} | 区间位置 ${result.pricePos.toFixed(0)}%`,
+          ...result.factors.map(f => `${f.verdict === 'bull' ? '▲' : f.verdict === 'bear' ? '▼' : '●'} ${f.name}:${f.reason}`)
+        ].join('\n')
+      );
     }
   }
 
-  // 6. 保存最新状态,供下次运行比较
-  fs.writeFileSync(STATE_FILE, JSON.stringify({ label, score, checkedAt: new Date().toISOString() }, null, 2));
+  if(changedBlocks.length > 0){
+    const messageParts = ['📊 加密市场信号更新', '', ...changedBlocks.map(b => b + '\n')];
+
+    const news = await fetchNews();
+    if(news.length > 0){
+      messageParts.push('📰 24小时内市场新闻');
+      news.forEach((n, i) => messageParts.push(`${i + 1}. ${n.title}`));
+      messageParts.push('');
+    }
+
+    messageParts.push('⚠️ 机械化技术信号,不构成投资建议');
+    await sendTelegram(messageParts.join('\n'));
+  }else{
+    console.log('本轮所有币种信号均未变化,不发送通知');
+  }
+
+  fs.writeFileSync(STATE_FILE, JSON.stringify(newState, null, 2));
 }
 
 main().catch(err => {
