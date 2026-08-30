@@ -1,19 +1,23 @@
 // scripts/check-signal.mjs
-// 定时拉取 BTC/ETH/SOL/DOGE 数据(1小时颗粒度)、分别计算信号,
-// 只有某个币种信号发生变化时,才把当次变化 + 24小时内市场新闻一起推送 Telegram
+// 定时拉取 BTC/ETH/SOL/DOGE 数据(1小时颗粒度)、分别计算信号。
+// - 新闻只保留和"这次真正变化的币种"相关的关键词匹配结果
+// - 信号需要连续两次检测都指向同一个新分类,才算"确认变化"并推送,避免临界值来回抖动
+// - 每次检测(不管有没有推送)都会记一行历史,方便以后回测这套规则准不准
 
 import fs from 'fs';
 
 const STATE_FILE = 'signal-state.json';
+const HISTORY_FILE = 'signal-history.jsonl';
+const DASHBOARD_URL = 'https://qq374514249.github.io/crypto-signal-station-Visibility/';
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 // 想增减关注的币种,改这个数组就行
 const COINS = [
-  { id: 'bitcoin', name: 'BTC', binanceSymbol: 'BTCUSDT' },
-  { id: 'ethereum', name: 'ETH', binanceSymbol: 'ETHUSDT' },
-  { id: 'solana', name: 'SOL', binanceSymbol: 'SOLUSDT' },
-  { id: 'dogecoin', name: 'DOGE', binanceSymbol: 'DOGEUSDT' },
+  { id: 'bitcoin', name: 'BTC', binanceSymbol: 'BTCUSDT', newsKeywords: ['bitcoin', 'btc'] },
+  { id: 'ethereum', name: 'ETH', binanceSymbol: 'ETHUSDT', newsKeywords: ['ethereum', 'eth'] },
+  { id: 'solana', name: 'SOL', binanceSymbol: 'SOLUSDT', newsKeywords: ['solana', 'sol'] },
+  { id: 'dogecoin', name: 'DOGE', binanceSymbol: 'DOGEUSDT', newsKeywords: ['dogecoin', 'doge'] },
 ];
 
 function calcSMA(closes, period){
@@ -128,8 +132,14 @@ async function computeCoinSignal(coin, fngValue){
   return { label, score, factors, currentPrice, support, resistance, pricePos };
 }
 
-// 抓取 CoinDesk RSS,只保留过去24小时内的新闻标题
-async function fetchNews(){
+function titleMatchesKeywords(title, keywords){
+  const lower = title.toLowerCase();
+  return keywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(lower));
+}
+
+// 抓取 CoinDesk RSS,只保留过去24小时内、且标题里提到相关币种关键词的新闻
+async function fetchRelevantNews(keywords){
+  if(keywords.length === 0) return [];
   try{
     const res = await fetch('https://www.coindesk.com/arc/outboundfeeds/rss/');
     if(!res.ok) throw new Error(`新闻源请求失败 ${res.status}`);
@@ -140,15 +150,15 @@ async function fetchNews(){
     const news = items.map(item => {
       const titleMatch = item.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/);
       const dateMatch = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/);
-      const linkMatch = item.match(/<link>([\s\S]*?)<\/link>/);
       const title = titleMatch ? titleMatch[1].trim() : '';
       const pubDate = dateMatch ? new Date(dateMatch[1].trim()) : null;
-      const link = linkMatch ? linkMatch[1].trim() : '';
-      return { title, pubDate, link };
+      return { title, pubDate };
     }).filter(n => n.title);
 
-    const recent = news.filter(n => n.pubDate && !isNaN(n.pubDate) && n.pubDate.getTime() >= cutoff);
-    return recent.slice(0, 4);
+    return news
+      .filter(n => n.pubDate && !isNaN(n.pubDate) && n.pubDate.getTime() >= cutoff)
+      .filter(n => titleMatchesKeywords(n.title, keywords))
+      .slice(0, 4);
   }catch(e){
     console.warn('新闻获取失败(跳过):', e.message);
     return [];
@@ -168,26 +178,32 @@ async function sendTelegram(text){
   }
 }
 
+function appendHistory(records){
+  const lines = records.map(r => JSON.stringify(r)).join('\n') + '\n';
+  fs.appendFileSync(HISTORY_FILE, lines);
+}
+
 async function main(){
   if(!BOT_TOKEN || !CHAT_ID){
     console.error('缺少 TELEGRAM_BOT_TOKEN 或 TELEGRAM_CHAT_ID 环境变量(需要在仓库 Secrets 里配置)');
     process.exit(1);
   }
 
-  // 恐慌贪婪指数是全市场共用的,只需要拉一次
   const fng = await fetchJson('https://api.alternative.me/fng/?limit=1');
   const fngValue = parseInt(fng.data[0].value, 10);
 
-  // 读取上次各币种的状态
   let prevState = {};
   try{
     prevState = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
   }catch(e){
-    // 文件不存在(首次运行),忽略
+    // 文件不存在或读取失败,当成全新开始
   }
 
   const newState = {};
   const changedBlocks = [];
+  const changedCoins = [];
+  const historyRecords = [];
+  const checkedAt = new Date().toISOString();
 
   for(const coin of COINS){
     let result;
@@ -198,40 +214,83 @@ async function main(){
       continue;
     }
 
-    const prevLabel = prevState[coin.id]?.label ?? null;
-    const changed = prevLabel !== result.label;
-    console.log(`${coin.name} 当前信号: ${result.label} (评分 ${result.score}) | 上次: ${prevLabel || '(无记录)'} | 是否变化: ${changed}`);
+    const existing = prevState[coin.id];
+    const rawLabel = result.label;
+    let notify = false;
+    let newConfirmed, newPending;
+    let displayPrevLabel = '(首次运行)';
 
-    newState[coin.id] = { label: result.label, score: result.score, checkedAt: new Date().toISOString() };
+    if(!existing){
+      // 从没记录过这个币种:先建立基线,不推送(避免"从无到有"也算一次变化的误报)
+      newConfirmed = rawLabel;
+      newPending = null;
+      console.log(`${coin.name} 首次记录,建立基线信号: ${rawLabel}(不推送)`);
+    }else{
+      const prevConfirmed = existing.confirmedLabel ?? null;
+      const prevPending = existing.pendingLabel ?? null;
+      displayPrevLabel = prevConfirmed || '(首次运行)';
 
-    if(changed){
+      if(rawLabel === prevConfirmed){
+        // 和已确认的信号一致,没有变化
+        newConfirmed = prevConfirmed;
+        newPending = null;
+      }else if(rawLabel === prevPending){
+        // 连续两次都指向同一个新分类,确认变化
+        newConfirmed = rawLabel;
+        newPending = null;
+        notify = true;
+      }else{
+        // 第一次出现这个新分类,先记为待确认,不推送
+        newConfirmed = prevConfirmed;
+        newPending = rawLabel;
+      }
+      console.log(`${coin.name} 原始信号: ${rawLabel} | 已确认: ${prevConfirmed || '无'} | 待确认: ${prevPending || '无'} | 本次是否推送: ${notify}`);
+    }
+
+    newState[coin.id] = { confirmedLabel: newConfirmed, pendingLabel: newPending, score: result.score, checkedAt };
+
+    historyRecords.push({
+      t: checkedAt,
+      coin: coin.id,
+      price: result.currentPrice,
+      score: result.score,
+      rawLabel,
+      confirmedLabel: newConfirmed,
+      notified: notify
+    });
+
+    if(notify){
       changedBlocks.push(
         [
-          `🎯 ${coin.name} 信号变化:${prevLabel || '(首次运行)'} → ${result.label}`,
+          `🎯 ${coin.name} 信号变化:${displayPrevLabel} → ${rawLabel}`,
           `现价 $${result.currentPrice.toLocaleString('en-US', { maximumFractionDigits: result.currentPrice < 1 ? 6 : 0 })} | 评分 ${result.score >= 0 ? '+' : ''}${result.score} | 区间位置 ${result.pricePos.toFixed(0)}%`,
           ...result.factors.map(f => `${f.verdict === 'bull' ? '▲' : f.verdict === 'bear' ? '▼' : '●'} ${f.name}:${f.reason}`)
         ].join('\n')
       );
+      changedCoins.push(coin);
     }
   }
 
   if(changedBlocks.length > 0){
     const messageParts = ['📊 加密市场信号更新', '', ...changedBlocks.map(b => b + '\n')];
 
-    const news = await fetchNews();
+    const keywords = [...new Set(changedCoins.flatMap(c => c.newsKeywords))];
+    const news = await fetchRelevantNews(keywords);
     if(news.length > 0){
-      messageParts.push('📰 24小时内市场新闻');
+      messageParts.push('📰 相关新闻(24小时内)');
       news.forEach((n, i) => messageParts.push(`${i + 1}. ${n.title}`));
       messageParts.push('');
     }
 
+    messageParts.push(`🔗 查看完整图表:${DASHBOARD_URL}`);
     messageParts.push('⚠️ 机械化技术信号,不构成投资建议');
     await sendTelegram(messageParts.join('\n'));
   }else{
-    console.log('本轮所有币种信号均未变化,不发送通知');
+    console.log('本轮没有币种的信号被"连续两次确认"为变化,不发送通知');
   }
 
   fs.writeFileSync(STATE_FILE, JSON.stringify(newState, null, 2));
+  appendHistory(historyRecords);
 }
 
 main().catch(err => {
