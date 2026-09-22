@@ -1,26 +1,26 @@
 {
   "bitcoin": {
-    "confirmedLabel": "轻微偏空",
-    "pendingLabel": "偏空 · 关注离场/减仓",
+    "confirmedLabel": "偏空 · 关注离场/减仓",
+    "pendingLabel": null,
     "score": -3,
-    "checkedAt": "2026-09-22T20:22:49.736Z"
+    "checkedAt": "2026-09-22T23:09:21.295Z"
   },
   "ethereum": {
     "confirmedLabel": "轻微偏空",
     "pendingLabel": null,
     "score": -1,
-    "checkedAt": "2026-09-22T20:22:49.736Z"
+    "checkedAt": "2026-09-22T23:09:21.295Z"
   },
   "solana": {
     "confirmedLabel": "轻微偏空",
-    "pendingLabel": null,
-    "score": -1,
-    "checkedAt": "2026-09-22T20:22:49.736Z"
+    "pendingLabel": "轻微偏多",
+    "score": 1,
+    "checkedAt": "2026-09-22T23:09:21.295Z"
   },
   "dogecoin": {
     "confirmedLabel": "轻微偏空",
-    "pendingLabel": "偏空 · 关注离场/减仓",
-    "score": -3,
-    "checkedAt": "2026-09-22T20:22:49.736Z"
+    "pendingLabel": null,
+    "score": -1,
+    "checkedAt": "2026-09-22T23:09:21.295Z"
   }
 }
