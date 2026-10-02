@@ -809,3 +809,7 @@
 {"t":"2026-10-02T04:22:19.960Z","coin":"ethereum","price":2731.058585297452,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏多","notified":true}
 {"t":"2026-10-02T04:22:19.960Z","coin":"solana","price":121.34620971561982,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏多","notified":false}
 {"t":"2026-10-02T04:22:19.960Z","coin":"dogecoin","price":0.09533289455970383,"score":2,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏空","notified":false}
+{"t":"2026-10-02T10:39:50.282Z","coin":"bitcoin","price":86372.12585897496,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏多","notified":false}
+{"t":"2026-10-02T10:39:50.282Z","coin":"ethereum","price":2746.8701212147234,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏多","notified":false}
+{"t":"2026-10-02T10:39:50.282Z","coin":"solana","price":121.84580649630033,"score":-1,"rawLabel":"轻微偏空","confirmedLabel":"轻微偏多","notified":false}
+{"t":"2026-10-02T10:39:50.282Z","coin":"dogecoin","price":0.09687346375451039,"score":2,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏多","notified":true}
