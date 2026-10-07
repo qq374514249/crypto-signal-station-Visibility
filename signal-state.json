@@ -3,24 +3,24 @@
     "confirmedLabel": "轻微偏空",
     "pendingLabel": null,
     "score": -1,
-    "checkedAt": "2026-10-07T06:52:57.747Z"
+    "checkedAt": "2026-10-07T14:14:28.865Z"
   },
   "ethereum": {
     "confirmedLabel": "轻微偏空",
     "pendingLabel": null,
     "score": -1,
-    "checkedAt": "2026-10-07T06:52:57.747Z"
+    "checkedAt": "2026-10-07T14:14:28.865Z"
   },
   "solana": {
     "confirmedLabel": "中性观望",
-    "pendingLabel": null,
-    "score": 0,
-    "checkedAt": "2026-10-07T06:52:57.747Z"
-  },
-  "dogecoin": {
-    "confirmedLabel": "中性观望",
     "pendingLabel": "轻微偏空",
     "score": -1,
-    "checkedAt": "2026-10-07T06:52:57.747Z"
+    "checkedAt": "2026-10-07T14:14:28.865Z"
+  },
+  "dogecoin": {
+    "confirmedLabel": "轻微偏空",
+    "pendingLabel": null,
+    "score": -1,
+    "checkedAt": "2026-10-07T14:14:28.865Z"
   }
 }
