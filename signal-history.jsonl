@@ -1743,3 +1743,7 @@
 {"t":"2026-11-23T06:01:49.407Z","coin":"bitcoin","price":61612.508338941894,"score":3,"rawLabel":"偏多 · 关注入场时机","confirmedLabel":"偏多 · 关注入场时机","notified":true}
 {"t":"2026-11-23T06:01:49.407Z","coin":"ethereum","price":1730.2787844774919,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏多","notified":false}
 {"t":"2026-11-23T06:01:49.407Z","coin":"solana","price":71.81852141627029,"score":3,"rawLabel":"偏多 · 关注入场时机","confirmedLabel":"偏多 · 关注入场时机","notified":false}
+{"t":"2026-11-23T18:36:51.545Z","coin":"bitcoin","price":61467.08601264503,"score":-1,"rawLabel":"轻微偏空","confirmedLabel":"偏多 · 关注入场时机","notified":false}
+{"t":"2026-11-23T18:36:51.545Z","coin":"ethereum","price":1744.2486703456107,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"轻微偏多","notified":false}
+{"t":"2026-11-23T18:36:51.545Z","coin":"solana","price":73.57776805133322,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"偏多 · 关注入场时机","notified":false}
+{"t":"2026-11-23T18:36:51.545Z","coin":"dogecoin","price":0.05732551595013586,"score":1,"rawLabel":"轻微偏多","confirmedLabel":"偏多 · 关注入场时机","notified":false}
